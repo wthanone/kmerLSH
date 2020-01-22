@@ -10,6 +10,12 @@ using std::string;
 using std::vector;
 
 namespace Utility {
+// Constants for spectrum in .sptxt file.
+const string BINARYFILEOFFSET_SPTXT = "BinaryFileOffset";
+const string NAME_SPTXT = "Name";
+const string NUMPEAKS_SPTXT = "NumPeaks";
+const string PRECURSORMZ_SPTXT = "PrecursorMZ";
+
 // Constants for spectrum in .msp file.
 const string NAME_MSP = "Name";
 const string NUMPEAKS_MSP = "Num peaks";
