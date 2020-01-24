@@ -8,9 +8,6 @@
 
 #include "params.h"
 
-#include "alglib-3.8.2/src/statistics.h"
-#include "alglib-3.8.2/src/ap.h"
-
 #include <iostream>
 using namespace std;
 
