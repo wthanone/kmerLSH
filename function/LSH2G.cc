@@ -104,21 +104,22 @@ void SaveMatrix(const vector<Abundance*>* abs_all, string out_file, string head,
 	out.close();
 }
 
-void p_lsh(vector<Abundance*> &hash_values, vector<int> &hash_keys, hashTable& hash_table, vector<Abundance*>* unknown_abs, int hash_func_num, int start_index, int end_index) {
+void p_lsh(vector<Abundance*> &hash_values, vector<int> &hash_keys, hashTable& hash_table, vector<Abundance*> unknown_abs, int buckets) {
   auto start_time = chrono::high_resolution_clock::now();
 
-  const int buckets = int(pow(2, hash_func_num));
   vector<Abundance*> local_hash_values;
   vector<int> local_hash_keys;
   // Reserve space to speed.
-  const int num_points = end_index - start_index;
+  const int num_points = unknown_abs.size();
   local_hash_values.reserve(num_points);
   local_hash_keys.reserve(num_points);
 
-  for (int i = start_index; i < end_index; ++i) {
-    auto& abundance = *(unknown_abs->at(i));
+  for (int i = 0; i < num_points; ++i) {
+    auto& abundance = *(unknown_abs[i]);
     int key = LSH::random_projection(abundance._values,abundance._locs, hash_table);
-    local_hash_values.push_back(unknown_abs->at(i));
+	//cout << abundance << endl;
+	//cout << "key : " << key << endl;
+    local_hash_values.push_back(unknown_abs[i]);
     local_hash_keys.push_back(key);
   }
   hash_values.swap(local_hash_values);
@@ -143,26 +144,25 @@ void merge_hashtable(vector<vector<Abundance*>>* final_table, int hash_func_num,
 }
 
 void free_hashtable(vector<vector<Abundance*>>* final_table, int s){
-  vector<Abundance*> clear_table;
   int size = (final_table->at(s)).size();
   for(int i = 0; i< size; ++i){
 	(final_table->at(s)).pop_back();
   }
-  final_table->at(s) = clear_table;
+  vector<Abundance*>().swap(final_table->at(s));
 }
-void merge_abundance(vector<Abundance*>* final_abundance, const vector<vector<Abundance*>*>& part_abundance) {
+void merge_abundance(vector<Abundance*>* final_abundance, const vector<vector<Abundance*>>& part_abundance) {
   vector<Abundance*> local_abundance;
   for (const auto& abundance : part_abundance) {
-    local_abundance.insert(local_abundance.end(), abundance->begin(), abundance->end());
+    local_abundance.insert(local_abundance.end(), abundance.begin(), abundance.end());
   }
   final_abundance->swap(local_abundance);
 }
-void free_abundance(vector<Abundance*>* final_abundance){
+void free_abundance(vector<Abundance*> final_abundance){
   vector<Abundance*> local_abundance;
-  for (int i=0; i< final_abundance->size(); ++i){
-	(*final_abundance).pop_back();
+  for (int i=0; i< final_abundance.size(); ++i){
+	(final_abundance).pop_back();
   }
-  final_abundance->swap(local_abundance);
+  vector<Abundance*>().swap(final_abundance);
 }
 
 
@@ -171,22 +171,29 @@ void p_cluster(vector<Abundance*> &part_ab, HyperParams* params, vector<vector<A
   int size;
 
   for (int s = start_pos; s < end_pos; ++s) {
+	//cout << "@ " << s << endl;
     auto& candidates = lsh_table->at(s);
     size = candidates.size();
 	auto start_time = chrono::high_resolution_clock::now();
 
+	//cout << "! " << s << "\t" << size << endl;
+
     for (int i = 1, j = 0 ; i < size;) {
+	  auto& current = *(candidates[i]);
+	  //cout << "I " << i << endl;
       for (j = 0; j < i; ++j) {
-        auto& current = *(candidates[i]);
         auto& candidate = *(candidates[j]);
+		//cout << "J " << j << endl;
         distance = Distance::cosine(current._values, current._locs , candidate._values, candidate._locs);
         if (1 - distance >= threshold) {
+		  //cout << "# " << s << "\t" << i << "\t" << j <<"\t" << size <<  endl;
           Abundance* ab_new = new Abundance();
           IO::SetConsensus(ab_new, current, candidate);
           delete candidates[i];
           delete candidates[j];
           candidates[j] = ab_new;
           candidates[i] = candidates[--size];
+		  
           candidates[size] = NULL;
           break;
         }
@@ -195,14 +202,14 @@ void p_cluster(vector<Abundance*> &part_ab, HyperParams* params, vector<vector<A
         ++i;
       }  
     }
-	for (int k =0; k< size; k++){
-	  part_ab.push_back(candidates[k]);
-	}
+	
+	part_ab.insert(part_ab.end(), candidates.begin(), candidates.begin()+size);
+	
 	auto end_time = chrono::high_resolution_clock::now();
     auto elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
-    cout << "@p_compare_takes_secs:\t"<< size << "\t" << elapsed_read << endl;
+    //cout << "@p_compare_takes_secs:\t"<< size << "\t" << elapsed_read << endl;
 	
-	free_hashtable(lsh_table, s);
+	//free_hashtable(lsh_table, s);
   }
 }
 
@@ -248,7 +255,17 @@ void Cluster(HyperParams& params) {
   auto end_time = chrono::high_resolution_clock::now();
   auto elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
   cout << "Reading matrix takes secs:\t" << elapsed_read << endl;
-  
+
+  int abundance_per_thread = (unknown_abundance).size() / params.threads_to_use;
+  vector<vector<Abundance*>> part_abundance(params.threads_to_use, vector<Abundance*>());  
+  for (int i = 0; i < params.threads_to_use; ++i) {
+	int abundance_to_do = abundance_per_thread;
+    if (i == params.threads_to_use - 1) {
+      abundance_to_do = (unknown_abundance).size() - i * abundance_per_thread;
+	}
+	int start_index = i * abundance_per_thread;
+	part_abundance[i].insert(part_abundance[i].end(), unknown_abundance.begin()+start_index, unknown_abundance.begin()+start_index+abundance_to_do);
+  }
 
   while (cluster_iteration++ < params.cluster_iteration) {
 	vector<vector<Abundance*>> lsh_table(buckets, vector<Abundance*>());
@@ -273,35 +290,30 @@ void Cluster(HyperParams& params) {
     }
 	*/
 	pool tp(params.threads_to_use); 
-	int abundance_per_thread = (unknown_abundance).size() / params.threads_to_use;
-  	cout <<"abundance per thread " << abundance_per_thread << endl;
 
   	for (int i = 0; i < params.threads_to_use; ++i) {
-    	int abundance_to_do = abundance_per_thread;
-    	if (i == params.threads_to_use - 1) {
-      		abundance_to_do = (unknown_abundance).size() - i * abundance_per_thread;
-      	}
-    	int start_index = i * abundance_per_thread;
-    	tp.schedule(boost::bind(p_lsh, boost::ref(part_hash_values[i]), boost::ref(part_hash_keys[i]), hash_table, unknown_abundance_ptr, buckets, start_index, start_index + abundance_to_do));
+	  tp.schedule(boost::bind(p_lsh, boost::ref(part_hash_values[i]), boost::ref(part_hash_keys[i]), hash_table, part_abundance[i], buckets));
     }
 
-		tp.wait();
-		//tp.clear();
-		    // Merge thread results.
-    IO::getValue(2);
-		cout << "Merge thread results " << endl;
-		merge_hashtable(&lsh_table, params.hash_func_num, part_hash_values, part_hash_keys);
-		IO::getValue(3);
+	tp.wait();
+	//tp.clear();
+	// Merge thread results.
+   
+	IO::getValue(2);
+	cout << "Merge thread results " << endl;
+	merge_hashtable(&lsh_table, params.hash_func_num, part_hash_values, part_hash_keys);
+	IO::getValue(3);
     for (int i = 0; i < params.threads_to_use; ++i) {
-      part_hash_values[i].clear();
-      part_hash_keys[i].clear();
+      vector<Abundance*>().swap(part_hash_values[i]);
+      vector<int>().swap(part_hash_keys[i]);
+	  vector<Abundance*>().swap(part_abundance[i]);	  
     }
     part_hash_keys.clear();
     part_hash_values.clear();
 
     IO::getValue(2);    
-    free_abundance(unknown_abundance_ptr);
-		IO::getValue(3);
+    free_abundance(unknown_abundance);
+	IO::getValue(3);
     end_time = chrono::high_resolution_clock::now();
     elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_hashing).count();
     cout << "hashing takes secs:\t" << elapsed_read << endl;
@@ -309,10 +321,10 @@ void Cluster(HyperParams& params) {
     auto start_time_clustering = chrono::high_resolution_clock::now();
     // Cluster within LSH buckets.
    
+	//vector<vector<Abundance*>> part_abundance(params.threads_to_use, vector<Abundance*>());
 
-		IO::getValue(4);
-		int buckets_per_thread = lsh_table.size() / params.threads_to_use;
-
+	IO::getValue(4);
+	int buckets_per_thread = lsh_table.size() / params.threads_to_use;
 
 	//pool tp(params.threads_to_use); 
     
@@ -324,23 +336,45 @@ void Cluster(HyperParams& params) {
       if (tid == params.threads_to_use - 1) {
         buckets_to_do = lsh_table.size() - buckets_per_thread * tid;
       }
+	  auto start_each_cluster = chrono::high_resolution_clock::now();
 	  cout<<"start p_cluster with " << tid << endl;
-      tp.schedule(boost::bind( p_cluster, boost::ref(unknown_abundance), &params, &lsh_table, start_pos, start_pos + buckets_to_do, threshold));
-	  cout<<"end p_cluster with " << tid << endl;
+      tp.schedule(boost::bind( p_cluster, boost::ref(part_abundance[tid]), &params, &lsh_table, start_pos, start_pos + buckets_to_do, threshold));
+	  end_time = chrono::high_resolution_clock::now();
+      elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_each_cluster).count();
+      cout << "clustering "<< tid << " takes secs:\t" << elapsed_read << endl;
     }
+	
 	tp.wait();	
-
 	tp.clear();
 
+	for (int i=0; i<buckets; i++){	
+	  vector<Abundance*>().swap(lsh_table[i]);
+	}
+	lsh_table.clear();
+
+	//part_abundance.swap(vector<Abundance);
+	IO::getValue(6);
 	end_time = chrono::high_resolution_clock::now();
 	elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_clustering).count();
 	cout << "clustering takes secs:\t" << elapsed_read << endl;
-	cout << "#abundance after clustering: " << (unknown_abundance).size() << endl;
 	cout << endl;
   }
+
+  auto start_time_merge = chrono::high_resolution_clock::now();
+  merge_abundance(unknown_abundance_ptr, part_abundance);
+  IO::getValue(7);
+  for(int i=0; i<params.threads_to_use; ++i){
+    vector<Abundance*>().swap(part_abundance[i]);
+  }
+  part_abundance.clear();
+  end_time = chrono::high_resolution_clock::now();
+  elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_merge).count();
+  cout << "merging takes secs:\t" << elapsed_read << endl;
+
   end_time = chrono::high_resolution_clock::now();
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_total).count();
   cout << "msCRUSH algorithm hash+cluster takes (secs): " << elapsed_read << endl;
+  cout << "#abundance after clustering: " << (unknown_abundance).size() << endl;
 
   // Save clusters.
   start_time = chrono::high_resolution_clock::now();
