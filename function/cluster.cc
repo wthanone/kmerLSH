@@ -23,87 +23,6 @@ using namespace std;
 using namespace Core;
 using namespace Utility;
 
-
-struct HyperParams
-{
-  double min_similarity;
-  double scale;
-  double precision;
-  int cluster_iteration;
-  int hash_func_num;
-  int rounds_num;
-  int threads_to_use;
-  string file_name;
-  string result_path;
-  string result_prefix;
-  string cs_path;
-};
-
-void PrintHyperParams(const HyperParams& params) {
-  cout << "************ msCRUSH Cluster Params Setting ****************" << endl;
-  cout << "cluster iteration: " << params.cluster_iteration << endl;
-  cout << "cluster result prefix: " << params.result_prefix << endl;
-  cout << "cluster result file path: " << params.result_path << endl;
-  cout << "hash function num: " << params.hash_func_num << endl;
-  cout << "input file name: " << params.file_name << endl;
-  cout << "scale : " << params.scale<< endl;
-  cout << "min similarity: " << params.min_similarity << endl;
-  cout << "precision: " << params.precision << endl;
-  cout << "threds to use: " << params.threads_to_use << endl;
-  cout << "********************************************************" << endl;
-}
-
-void SetHyperParams(HyperParams* params) {
-  (*params).cluster_iteration = 100;  //TODO: Tune this param.
-  (*params).hash_func_num = 10;
-  (*params).min_similarity = 0.65;  //TODO: Tune this param.
-  (*params).precision = 0.8;  //TODO: Tune this param.
-  (*params).scale = 1;
-  (*params).rounds_num = 4;
-  (*params).threads_to_use = 20;
-}
-
-void SaveClusters(const vector<Abundance*>* abs_all, string out_file) {
-	ofstream out(out_file);
-	//out << "ID\tTitles" << endl;
-	for (int i = 0; i < abs_all->size(); ++i) {		
-		out << i ;
-		vector<string> kmerVec = abs_all->at(i)->_kmers;
-		for(auto & kmer : kmerVec){
-			out << "\t" << kmer ;
-		}
-		out<< endl;
-	}
-	out.close();
-}
-
-void SaveMatrix(const vector<Abundance*>* abs_all, string out_file, string head, int dim) {
-	ofstream out(out_file);
-	out << head << endl;
-	for (int i = 0; i < abs_all->size(); ++i) {
-		out << i ;
-		int k =0;
-		vector<int> locs = abs_all->at(i)->_locs;
-		vector<double> values = abs_all->at(i)->_values;
-		for(int j=0; j<dim; ++j){
-			if (k < locs.size()){
-				if(j == locs[k]){
-					out << "\t" << values[k];
-					k++;
-				}
-				else{
-					out<< "\t0";
-				}
-			}
-			else {
-				out<< "\t0";
-			}
-		}
-		out << endl;
-	}
-	out.close();
-}
-
 void p_lsh(vector<Abundance*> &hash_values, vector<int> &hash_keys, hashTable& hash_table, vector<Abundance*> unknown_abs, int buckets) {
   auto start_time = chrono::high_resolution_clock::now();
 
@@ -125,7 +44,7 @@ void p_lsh(vector<Abundance*> &hash_values, vector<int> &hash_keys, hashTable& h
   hash_values.swap(local_hash_values);
   hash_keys.swap(local_hash_keys);
 }
-  
+
 
 void merge_hashtable(vector<vector<Abundance*>>* final_table, int hash_func_num, const vector<vector<Abundance*>>& part_hash_values,  const vector<vector<int>>& part_hash_keys) {
   const int buckets = int(pow(2, hash_func_num));
@@ -193,22 +112,22 @@ void p_cluster(vector<Abundance*> &part_ab, HyperParams* params, vector<vector<A
           delete candidates[j];
           candidates[j] = ab_new;
           candidates[i] = candidates[--size];
-		  
+
           candidates[size] = NULL;
           break;
         }
       }
       if (j == i){
         ++i;
-      }  
+      }
     }
-	
+
 	part_ab.insert(part_ab.end(), candidates.begin(), candidates.begin()+size);
-	
+
 	auto end_time = chrono::high_resolution_clock::now();
     auto elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
     //cout << "@p_compare_takes_secs:\t"<< size << "\t" << elapsed_read << endl;
-	
+
 	//free_hashtable(lsh_table, s);
   }
 }
@@ -241,7 +160,7 @@ void Cluster(HyperParams& params) {
   string head = "";
   int dim = 0;
 
-  auto start_time_total = chrono::high_resolution_clock::now(), 
+  auto start_time_total = chrono::high_resolution_clock::now(),
   start_time = chrono::high_resolution_clock::now();
 
   double max_similarity = 0.9;  // Heuristics for maximum spearman similarity.
@@ -257,7 +176,7 @@ void Cluster(HyperParams& params) {
   cout << "Reading matrix takes secs:\t" << elapsed_read << endl;
 
   int abundance_per_thread = (unknown_abundance).size() / params.threads_to_use;
-  vector<vector<Abundance*>> part_abundance(params.threads_to_use, vector<Abundance*>());  
+  vector<vector<Abundance*>> part_abundance(params.threads_to_use, vector<Abundance*>());
   for (int i = 0; i < params.threads_to_use; ++i) {
 	int abundance_to_do = abundance_per_thread;
     if (i == params.threads_to_use - 1) {
@@ -289,7 +208,7 @@ void Cluster(HyperParams& params) {
       part_hash_keys.push_back(new vector<int>());
     }
 	*/
-	pool tp(params.threads_to_use); 
+	pool tp(params.threads_to_use);
 
   	for (int i = 0; i < params.threads_to_use; ++i) {
 	  tp.schedule(boost::bind(p_lsh, boost::ref(part_hash_values[i]), boost::ref(part_hash_keys[i]), hash_table, part_abundance[i], buckets));
@@ -298,7 +217,7 @@ void Cluster(HyperParams& params) {
 	tp.wait();
 	//tp.clear();
 	// Merge thread results.
-   
+
 	IO::getValue(2);
 	cout << "Merge thread results " << endl;
 	merge_hashtable(&lsh_table, params.hash_func_num, part_hash_values, part_hash_keys);
@@ -306,12 +225,12 @@ void Cluster(HyperParams& params) {
     for (int i = 0; i < params.threads_to_use; ++i) {
       vector<Abundance*>().swap(part_hash_values[i]);
       vector<int>().swap(part_hash_keys[i]);
-	  vector<Abundance*>().swap(part_abundance[i]);	  
+	  vector<Abundance*>().swap(part_abundance[i]);
     }
     part_hash_keys.clear();
     part_hash_values.clear();
 
-    IO::getValue(2);    
+    IO::getValue(2);
     free_abundance(unknown_abundance);
 	IO::getValue(3);
     end_time = chrono::high_resolution_clock::now();
@@ -320,14 +239,14 @@ void Cluster(HyperParams& params) {
 
     auto start_time_clustering = chrono::high_resolution_clock::now();
     // Cluster within LSH buckets.
-   
+
 	//vector<vector<Abundance*>> part_abundance(params.threads_to_use, vector<Abundance*>());
 
 	IO::getValue(4);
 	int buckets_per_thread = lsh_table.size() / params.threads_to_use;
 
-	//pool tp(params.threads_to_use); 
-    
+	//pool tp(params.threads_to_use);
+
     for (int tid = 0; tid < params.threads_to_use; ++tid) {
       int start_pos = buckets_per_thread * tid;
       int buckets_to_do = buckets_per_thread;
@@ -343,11 +262,11 @@ void Cluster(HyperParams& params) {
       elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_each_cluster).count();
       cout << "clustering "<< tid << " takes secs:\t" << elapsed_read << endl;
     }
-	
-	tp.wait();	
+
+	tp.wait();
 	tp.clear();
 
-	for (int i=0; i<buckets; i++){	
+	for (int i=0; i<buckets; i++){
 	  vector<Abundance*>().swap(lsh_table[i]);
 	}
 	lsh_table.clear();
@@ -379,13 +298,13 @@ void Cluster(HyperParams& params) {
   // Save clusters.
   start_time = chrono::high_resolution_clock::now();
   cout << "Saving cluster results starts: " << endl;
- 
+
   SaveClusters(unknown_abundance_ptr,  params.result_prefix+".out");
   SaveMatrix(unknown_abundance_ptr, params.result_prefix+".mat", head, dim);
   end_time = chrono::high_resolution_clock::now();
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
   cout << "Save cluster results takes secs: " << elapsed_read << endl;
-  
+
   // Release allocated memory for spectra w/ charge; save pointers to spectra
   // w/o charge to variable 'spectra_of_no_charge'.
   start_time = chrono::high_resolution_clock::now();
@@ -394,7 +313,7 @@ void Cluster(HyperParams& params) {
 		delete (unknown_abundance)[i];
   }
   (unknown_abundance).clear();
-  
+
   end_time = chrono::high_resolution_clock::now();
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time).count();
   cout << "Releasing memory takes: " << elapsed_read << endl;
@@ -403,30 +322,3 @@ void Cluster(HyperParams& params) {
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_total).count();
   cout << "msCRUSH algorithm in total takes (secs): " << elapsed_read << endl;
 }
-
-int main (int argc, char *argv[]) {
-  if (argc < 7){
-    cout << "Missing parameters, at least 9 params." << endl;
-    cout << "Usage: ./mscrush_on_general_abundanceMat [threads_to_use] [hash_func_num] [iteration] [min_similarity] [min_mz] [max_mz] [result_prefix] [mgf_file(s)]." << endl;
-    return -1;
-  }
-
-  HyperParams params;
-  SetHyperParams(&params); 
-
-  SplitCommands(argc, argv, &params);
-
-  PrintHyperParams(params);
-
-  auto start_time_total = chrono::high_resolution_clock::now();
-
-  Cluster(params);  
-    
-  auto end_time = chrono::high_resolution_clock::now();
-  auto elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_total).count();
-  cout << "In all, msCRUSH takes: " << elapsed_read << endl;
-  cout << endl;
-
-  return 0;
-}
-
