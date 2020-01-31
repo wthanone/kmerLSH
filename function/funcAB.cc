@@ -7,6 +7,12 @@ void IO::SetAbundance(Abundance* abundance, const vector<string>& kmers, const v
   (*abundance)._locs = locs;
   (*abundance)._kmers = kmers;
 }
+void IO::convertHTAB(uint16_t **ary_count, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance> &kvec){
+
+
+
+
+}
 /*
 void IO::randAbundance(Abundance* abundance, const Abundance& ab, double scale ){
   random_device rd;
