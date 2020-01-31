@@ -7,8 +7,26 @@ void IO::SetAbundance(Abundance* abundance, const vector<string>& kmers, const v
   (*abundance)._locs = locs;
   (*abundance)._kmers = kmers;
 }
-void IO::convertHTAB(uint16_t **ary_count, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance> &kvec){
 
+void IO::convertHTAB(uint16_t **ary_count, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, const vector<Kmer> &kvec, vector<Abundance*> &abvec){
+  uint16_t cnt;
+  uint64_t tot_cnt, num_kmers;
+  Kmer km;
+
+  for(uint64_t i=0; i<batch_size; i++){
+    km = kvec[batch_offset+i];
+    tot_cnt = 0;
+    for (int j =0; j<tot_sample;j++){
+      cnt = ary_count[j][i];
+      if (cnt > 0){
+        num_kmers = v_kmers[j];
+
+      }
+
+
+
+    }
+  }
 
 
 
