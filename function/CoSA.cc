@@ -387,28 +387,12 @@ void SA(int argc, char **argv) {
 	  const char * basep = (*it).c_str();
 	  std::string base(basename(basep));
 
-	  if (opt.mode == 1) {
-		  filename = std::string(opt.output1) + ("_" + base);
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer1_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
 
-	  } else if (opt.mode == 2) {
-		  //down for down-regulated: RNA less than DNA
-		  //up for up-regulated: RNA more than DNA
-		  filename = "DNA_downreg_" + base;
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer1_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
-
-		  filename = "DNA_upreg_" + base;
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer2_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
-	  }
+		filename = std::string(opt.output1) + ("_" + base);
+		if (opt.verbose) {
+			cout << "writing to " << filename << endl;
+		}
+		ReadExtract(g_kmer1_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
 	  tmp.clear();
 	}
 
@@ -418,27 +402,11 @@ void SA(int argc, char **argv) {
 
 	  const char * basep = (*it).c_str();
 	  std::string base(basename(basep));
-
-	  if (opt.mode == 1) {
-		  filename = std::string(opt.output2) + ("_" + base);
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer2_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
-
-	  } else if (opt.mode == 2) {
-		  filename = "RNA_upreg_" + base;
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer2_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
-
-		  filename = "RNA_downreg_" + base;
-		  if (opt.verbose) {
-			  cout << "writing to " << filename << endl;
-		  }
-		  ReadExtract(g_kmer1_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
-	  }
+		filename = std::string(opt.output2) + ("_" + base);
+		if (opt.verbose) {
+			cout << "writing to " << filename << endl;
+		}
+		ReadExtract(g_kmer2_ptr, tmp, filename, opt.kmer_vote, opt.verbose, tp, opt.num_threads, large_kmer_count_ptr);
 	  tmp.clear();
 	}
 
