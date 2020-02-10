@@ -17,7 +17,7 @@ class Abundance {
  public:
   vector<double> _values;
   vector<int> _locs;
-  vector<string> _kmers;
+  vector<int> _ids;
 
   Abundance() {};
 
@@ -25,17 +25,17 @@ class Abundance {
 
   Abundance(const Abundance& ab) {
     _values = ab._values;
-	_locs = ab._locs;
-	_kmers = ab._kmers;
+    _locs = ab._locs;
+    _ids = ab._ids;
   }
 
   Abundance& operator=(const Abundance& ab) {
     _values = ab._values;
-	_locs = ab._locs;
-	_kmers = ab._kmers;
+    _locs = ab._locs;
+    _ids = ab._ids;
     return *this;
   }
-  
+
   friend ostream& operator<<(ostream& os, const Abundance& abundance);
 /*
   bool shareTopPeaks(const Spectrum& other, double epsilon) {
@@ -58,8 +58,8 @@ inline ostream& operator<<(ostream& os, const Abundance& ab) {
   //os << "number of kmers: " << ab._kmers.size() << endl;
   //os << "gene abundances' location and value :" << endl;
   //for (auto value : ab._values) {
-  for (int i = 0; i< ab._kmers.size(); i++){
-	os << ab._kmers[i] << "\t" ;
+  for (int i = 0; i< ab._ids.size(); i++){
+	os << ab._ids[i] << "\t" ;
   }
   os << endl;
   for (int i = 0; i < ab._values.size(); ++i ) {

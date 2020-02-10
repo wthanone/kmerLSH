@@ -2,34 +2,48 @@
 
 namespace Utility {
 
-void IO::SetAbundance(Abundance* abundance, const vector<string>& kmers, const vector<double>& values, const vector<int>& locs) {
+void IO::SetAbundance(Abundance* abundance, const vector<int>& ids, const vector<double>& values, const vector<int>& locs) {
   (*abundance)._values = values;
   (*abundance)._locs = locs;
-  (*abundance)._kmers = kmers;
+  (*abundance)._ids = ids;
 }
 
-void IO::convertHTAB(uint16_t **ary_count, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, const vector<Kmer> &kvec, vector<Abundance*> &abvec){
+void IO::UpdateAbundacneIDs(Abundance* abundance, const vector<int>& ids){
+  (*abundance)._ids = ids;
+}
+
+void IO::convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance*>* abVec){
   uint16_t cnt;
-  uint64_t tot_cnt, num_kmers;
-  Kmer km;
+  uint64_t num_kmers;
+  vector<double> values;
+  vector<int> locs, ids;
+  double value, totalValue;
+  Abundance* abundance;
 
   for(uint64_t i=0; i<batch_size; i++){
-    km = kvec[batch_offset+i];
-    tot_cnt = 0;
+    ids.push_back(batch_offset+i);
     for (int j =0; j<tot_sample;j++){
       cnt = ary_count[j][i];
       if (cnt > 0){
         num_kmers = v_kmers[j];
-
+        locs.push_back(j);
+        value = double(cnt) * 1000000 / num_kmers ;
+        totalValue += pow(value, 2);
+        values.push_back(value);
       }
-
-
-
     }
+    for(int k=0; k < values.size(); k++){
+      values[k] /= sqrt(totalValue);
+    }
+    abundance = new Abundance();
+    SetAbundance(abundance, ids, values, locs);
+    abVec->push_back(abundance);
+
+    totalValue = 0.0;
+    values.clear();
+    ids.clear();
+    locs.clear();
   }
-
-
-
 }
 /*
 void IO::randAbundance(Abundance* abundance, const Abundance& ab, double scale ){
@@ -74,56 +88,61 @@ void IO::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundanc
   vector<double> ab_value1 = ab1._values, ab_value2 = ab2._values;
   vector<int> new_ab_loc;
   vector<int> ab_loc1 = ab1._locs, ab_loc2 = ab2._locs;
-  vector<string> ab1_kmers = ab1._kmers, ab2_kmers = ab2._kmers;
+  vector<int> ab1_ids = ab1._ids, ab2_ids = ab2._ids;
   int cnt = 0, i = 0, j = 0;
-  int ab1_count = ab1_kmers.size(), ab2_count = ab2_kmers.size();
+  int ab1_count = ab1_ids.size(), ab2_count = ab2_ids.size();
   int all_count = ab1_count + ab2_count ;
-  ab1_kmers.insert(ab1_kmers.end(),  ab2_kmers.begin(), ab2_kmers.end());
+  ab1_ids.insert(ab1_ids.end(),  ab2_ids.begin(), ab2_ids.end());
+
   while(i < ab_loc1.size() && j < ab_loc2.size()){
-	if (ab_loc1[i] == ab_loc2[j]){
-	  new_ab_value.push_back((ab_value1[i]*ab1_count+ab_value2[i]*ab2_count)/all_count);
-	  new_ab_loc.push_back(ab_loc1[i]);
-	  ++j;
-	  ++i;
-	}
-	else if(ab_loc1[i] < ab_loc2[j]) {
-	  new_ab_value.push_back(ab_value1[i]*ab1_count/all_count);
-	  new_ab_loc.push_back(ab_loc1[i]);
-	  ++i;
-	}
-	else {
-	  new_ab_value.push_back(ab_value2[j]*ab2_count/all_count);
-	  new_ab_loc.push_back(ab_loc2[j]);
-	  ++j;
-	}
+    if (ab_loc1[i] == ab_loc2[j]){
+      new_ab_value.push_back((ab_value1[i]*ab1_count+ab_value2[i]*ab2_count)/all_count);
+      new_ab_loc.push_back(ab_loc1[i]);
+      ++j;
+      ++i;
+    }
+    else if(ab_loc1[i] < ab_loc2[j]) {
+      new_ab_value.push_back(ab_value1[i]*ab1_count/all_count);
+      new_ab_loc.push_back(ab_loc1[i]);
+      ++i;
+    }
+    else {
+      new_ab_value.push_back(ab_value2[j]*ab2_count/all_count);
+      new_ab_loc.push_back(ab_loc2[j]);
+      ++j;
+    }
     ++cnt;
   }
+
   while (i < ab_loc1.size()) {
-	new_ab_value.push_back(ab_value1[i]*ab1_count/all_count);
-	new_ab_loc.push_back(ab_loc1[i]);
-	++i;
-	++cnt;
+    new_ab_value.push_back(ab_value1[i]*ab1_count/all_count);
+    new_ab_loc.push_back(ab_loc1[i]);
+    ++i;
+    ++cnt;
   }
   while (j < ab_loc2.size()) {
-	new_ab_value.push_back(ab_value2[j]*ab2_count/all_count);
-	new_ab_loc.push_back(ab_loc2[j]);
-	++j;
-	++cnt;
+    new_ab_value.push_back(ab_value2[j]*ab2_count/all_count);
+    new_ab_loc.push_back(ab_loc2[j]);
+    ++j;
+    ++cnt;
   }
-  SetAbundance(abundance, ab1_kmers, new_ab_value, new_ab_loc);
+
+  SetAbundance(abundance, ab1_ids, new_ab_value, new_ab_loc);
 }
+
 void IO::SetMean(Abundance* abundance,const vector<Abundance*>& local_ab){
   int length = local_ab.size();
   Abundance* tmp = new Abundance();
   auto& previous = *(local_ab[0]);
   for(int i =1; i < length; ++i){
-	//cout << "SetMean : " << i << endl;
-	auto& current = *(local_ab[i]);
-	SetConsensus(tmp, current, previous);
-	previous = *tmp;
+    //cout << "SetMean : " << i << endl;
+    auto& current = *(local_ab[i]);
+    SetConsensus(tmp, current, previous);
+    previous = *tmp;
   }
   abundance = tmp;
 }
+
 bool IO::isSameAb(Abundance* ab1, Abundance* ab2){
   bool out = false;
   vector<double> ab_values1 = ab1->_values;
@@ -132,16 +151,16 @@ bool IO::isSameAb(Abundance* ab1, Abundance* ab2){
   vector<int> ab_locs2 = ab2->_locs;
   cout << "isSameAb start" << endl;
   if(ab_locs1.size() != ab_locs2.size()){
-	cout << "isSame not same size " << ab_locs1.size() << " " << ab_locs2.size() << endl;
-	return out;
+    cout << "isSame not same size " << ab_locs1.size() << " " << ab_locs2.size() << endl;
+    return out;
   }
   else {
-	cout << "isSameAb same size" << endl;
-	for(int i=0; i<ab_locs1.size(); ++i){
-	  if (ab_locs1[i] != ab_locs2[i] || ab_values1[i] != ab_values2[i]){
-		return out;
-	  }
-	}
+    cout << "isSameAb same size" << endl;
+    for(int i=0; i<ab_locs1.size(); ++i){
+      if (ab_locs1[i] != ab_locs2[i] || ab_values1[i] != ab_values2[i]){
+        return out;
+      }
+    }
   }
   out = true;
   return out;

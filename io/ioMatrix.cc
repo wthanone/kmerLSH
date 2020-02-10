@@ -44,15 +44,16 @@ double IO::convert(char const* source, char ** endPtr ) {
   }
   return results;
 }
+void IO::ReadCluster(vector<Abundance*>* abMatrix, ){
 
-void IO::ReadMatrix(vector<Abundance*>* geneAbundances, string* head, int* dim, int* _size, double scale,  string mat_file_name, string tag_file_name, double precisionm) {
+
+}
+void IO::ReadMatrix(vector<Abundance*>* geneAbundances, string* head, int* dim, int* _size, bool normalization,  string file_name ) {
   int sample_cnt = 0;
-  int gene_cnt=0;
-  double geneAb;
+  int line_cnt = 0;
   double totalgeneAb= 0.0;
-  vector<double> gene_ab;
-  vector<int> gene_loc;
-  vector<string> kmer_vec;
+  vector<double> nonzero_ab;
+  vector<int> nonzero_loc, ids;
   string line;
   ifstream infile(file_name);
   if (!infile.is_open()) {
@@ -65,56 +66,116 @@ void IO::ReadMatrix(vector<Abundance*>* geneAbundances, string* head, int* dim, 
   char* lineEnd;
 
   while (getline(infile, line)){
-	gene_ab.clear();
-	gene_loc.clear();
-	kmer_vec.clear();
-	if (line.empty() || line[0] == '#') {
+    nonzero_ab.clear();
+    nonzero_loc.clear();
+    ids.clear();
+    if (line.empty() || line[0] == '#') {
       continue;
     }
-	if (line[0] == '\t'){
-		*head = line;
-		continue;
-	}
-	//read gene Name
+    if (line[0] == '\t'){
+      *head = line;
+      continue;
+    }
+    //read gene Name
 
-	lineStart = line.c_str();
-	geneAb = strtod(lineStart, &lineEnd);
-	kmer_vec.push_back(to_string((int) geneAb));
+    lineStart = line.c_str();
+    geneAb = strtod(lineStart, &lineEnd);
+    ids.push_back((int) geneAb);
 
+    while(lineStart != lineEnd){
+      // https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
+      lineStart = lineEnd;
+      geneAb = strtod(lineStart, &lineEnd);
+      ++sample_cnt;
+      if (geneAb > 0){
+        nonzero_ab.push_back(geneAb);
+        if(normalization){totalgeneAb += pow(geneAb, 2);}
+        nonzero_loc.push_back(sample_cnt);
+      }
+    }
 
-	while(lineStart != lineEnd){
-		// https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
+    //check using normalization
+    if (normalization){
+      for(int i = 0; i< nonzero_ab.size(); i++){
+        nonzero_ab[i] /= sqrt(totalgeneAb);
+      }
+    }
 
-	  lineStart = lineEnd;
-	  geneAb = strtod(lineStart, &lineEnd);
-	  ++sample_cnt;
-	  if (geneAb > 0){
-	  	gene_ab.push_back(geneAb * scale);
-      totalgeneAb += pow(geneAb * scale, 2);
-      gene_loc.push_back(sample_cnt);
-	  }
-	}
-
-	//check using normalization
-  for(int i = 0; i< gene_ab.size(); i++){
-    gene_ab[i] /= sqrt(totalgeneAb);
-	  //cout << gene_ab[i] << "\t" ;
-	}
-	//cout << endl;
-  Abundance* abundance = new Abundance();
-  SetAbundance(abundance, kmer_vec, gene_ab, gene_loc);
-
-  (*geneAbundances).push_back(abundance);
-
-  ++gene_cnt;
-	*dim = sample_cnt-1;
-	sample_cnt = 0;
-	totalgeneAb = 0;
+    Abundance* abundance = new Abundance();
+    SetAbundance(abundance, ids, nonzero_ab, nonzero_loc);
+    (*geneAbundances).push_back(abundance);
+    ++line_cnt;
+    *dim = sample_cnt-1;
+    sample_cnt = 0;
+    totalgeneAb = 0;
   }
-  cout << "read #total genes: " << gene_cnt << endl;
-
+  cout << "read #total lines: " << line_cnt << endl;
   infile.close();
 }
 
+void SaveResult(const vector<Abundance*>* abs_all, string out_dir){
+  //1) save _ids
+  vector<int> ids, locs;
+  vector<double> values;
+  ofstream out
+  out.open(out_dir+"ids.txt");
+  for (int i = 0; i < abs_all->size(); ++i) {
+		ids = abs_all->at(i)->_ids;
+    out << ids[0];
+		for(int j=1; j< ids.size(); j++){
+			out << "\t" << ids[j] ;
+		}
+		out<< endl;
+	}
+  out.close();
+  out.open(out_dir+"ids.txt");
+  for (int i = 0; i < abs_all->size(); ++i) {
+		locs = abs_all->at(i)->_locs;
+    out << locs[0];
+		for(int j=1; j< locs.size(); j++){
+			out << "\t" << locs[j] ;
+		}
+		out<< endl;
+	}
+  out.close();
+  out.open(out_dir+"ids.txt");
+  for (int i = 0; i < abs_all->size(); ++i) {
+    values = abs_all->at(i)->_values;
+    out << values[0];
+    for(int j=1; j< ids.size(); j++){
+      out << "\t" << values[j] ;
+    }
+    out<< endl;
+  }
+  out.close();
+}
+
+
+void SaveMatrix(const vector<Abundance*>* abs_all, string out_file, string head, int dim) {
+	ofstream out(out_file);
+	out << head << endl;
+	for (int i = 0; i < abs_all->size(); ++i) {
+		out << i ;
+		int k =0;
+		vector<int> locs = abs_all->at(i)->_locs;
+		vector<double> values = abs_all->at(i)->_values;
+		for(int j=0; j<dim; ++j){
+			if (k < locs.size()){
+				if(j == locs[k]){
+					out << "\t" << values[k];
+					k++;
+				}
+				else{
+					out<< "\t0";
+				}
+			}
+			else {
+				out<< "\t0";
+			}
+		}
+		out << endl;
+	}
+	out.close();
+}
 
 }  // namespace Utility
