@@ -6,29 +6,29 @@ void InsertKmer(ckhmap_t *kmap_ptr, vector<Kmer> &kmer_vec, int num_threads, uns
 	size_t num_kmer = kmer_vec.size();
 	Kmer km;
 	//ckhmap_t::iterator it;
-	
+
 	for (size_t i = 0; i < num_kmer; i++) {
 		if ( (i % num_threads == tid) ) {
 			km = kmer_vec[i];
 
 			Kmer tw = km.twin();
 			Kmer rep = (km < tw) ? km : tw;
-			
+
 			kmap_ptr->insert(rep, 0);
 			//kmap_ptr->insert(KmerIntPair(rep,0));
 
 		}
 	}
 }
-//go through a kmc library, insert kmers to a hash table 
+//go through a kmc library, insert kmers to a hash table
 //  and compute total coverages of kmers in the single kmc library
 //void KmcRead(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, unsigned int num_threads) {
-void KmcRead(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, unsigned int num_threads) {
+void KmcRead(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, pool &tp, unsigned int num_threads) {
 
 	CKMCFile kmer_data_base;
 	//int32 i;
 
-	if (!kmer_data_base.OpenForListing(kmc_file_name)) 
+	if (!kmer_data_base.OpenForListing(kmc_file_name))
 		exit(EXIT_FAILURE);
 	else {
 		uint32 _kmer_length;
@@ -46,7 +46,7 @@ void KmcRead(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, unsigned in
 		uint32_t cnt;
 
 		vector<Kmer> kmer_vec(_total_kmers);
-		
+
 		if (verbose) {
 			cout << "total kmers : "<< _total_kmers << endl;
 		}
@@ -59,28 +59,35 @@ void KmcRead(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, unsigned in
 			kmer_object.to_string(str);
 			//cout << str << endl;
 			Kmer km(str);
-			
+
 			kmer_vec[idx_k] = km;
 			idx_k ++;
 		}
-		vector<ckhmap_t*> vecKmap_ptr;
-		for (int i = 0; i < num_threads; ++i){
-			vecKmap_ptr[i].push_back(new ckmap_t ());
-		}
-		#paragma omp parallel for
+
+		/*pool tp(num_threads);
+		if (verbose) {
+			cout << "start " << num_threads << " threads" << endl;
+		}*/
+
 		for (unsigned int tid = 0; tid < num_threads; tid++) {
-			InsertKmer(vecKmap_ptr[tid], kmer_vec, num_threads, tid);
+			tp.schedule(boost::bind(InsertKmer, kmap_ptr, boost::ref(kmer_vec), num_threads, tid));
 		}
-		
+		tp.wait();
+		//tp.clear();
+
+
 			//Kmer tw = km.twin();
 			//Kmer rep = (km < tw) ? km : tw;
 
 			//pair<hmap_t::iterator,bool> ref = kmap_ptr->insert(KmerIntPair(rep,0));
 			//kmap_ptr->insert(rep, 0);
 			//kmap_ptr->insert(KmerIntPair(rep,0));
-			
+
+		//}
 		kmer_data_base.Close();
 		kmer_vec.clear();
+		tp.clear();
+
 	}
 }
 
@@ -88,7 +95,7 @@ void SearchKmer(ckhmap_t *kmap_ptr, vector<Kmer> &kmer_vec, vector<uint32> &cnt_
 	size_t num_kmer = kmer_vec.size();
 	Kmer km;
 	uint32 cnt, tmp;
-	
+
 	for (size_t i = 0; i < num_kmer; i++) {
 		if ( (i % num_threads == tid) ) {
 			km = kmer_vec[i];
@@ -96,7 +103,7 @@ void SearchKmer(ckhmap_t *kmap_ptr, vector<Kmer> &kmer_vec, vector<uint32> &cnt_
 
 			Kmer tw = km.twin();
 			Kmer rep = (km < tw) ? km : tw;
-			
+
 			if (kmap_ptr->contains(rep)) {
 				tmp = kmap_ptr->find(rep) + cnt;
 				if (tmp > 65535) tmp = 65535;
@@ -136,7 +143,7 @@ size_t KmcCount(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, pool &tp
 
 		vector<Kmer> kmer_vec(_total_kmers);
 		vector<uint32> cnt_vec(_total_kmers);
-		
+
 		//TODO: add min_count_to_set and max_count_to_set
 		CKmerAPI kmer_object(_kmer_length);
 
@@ -144,7 +151,7 @@ size_t KmcCount(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, pool &tp
 		while (kmer_data_base.ReadNextKmer(kmer_object, cnt)) {
 			kmer_object.to_string(str);
 			Kmer km(str);
-			
+
 			kmer_vec[idx_k] = km;
 			cnt_vec[idx_k] = cnt;
 			tot_coverage += cnt;
@@ -166,6 +173,6 @@ size_t KmcCount(string kmc_file_name, ckhmap_t *kmap_ptr, bool verbose, pool &tp
 		cnt_vec.clear();
 
 		return tot_coverage;
-	
+
 	}
 }
