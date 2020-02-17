@@ -1,4 +1,4 @@
-#include "io.h"
+#include "ioFastQ.h"
 
 namespace Utility {
 
@@ -150,25 +150,5 @@ namespace Utility {
   	fclose(of);
   	FQ.close();
   }
-
-  //added by Mingjie on 09/05/2014
-  void GetInput(string input, vector<string> &samples, vector<string> &kmc_names) {
-  	ifstream infile (input.c_str());
-  	string line;
-  	if (infile.is_open()) {
-  		while (std::getline(infile, line)) {
-  			istringstream ss(line);
-  			string sample, kmc_name;
-  			ss >> sample >> kmc_name;
-
-  			samples.push_back(sample);
-  			kmc_names.push_back(kmc_name);
-  			//cout << sample << "\t" << kmc_name << endl;
-  		}
-  		infile.close();
-  	}
-  	else cerr << "Unable to open info file";
-  }
-
 
 }  // namespace Utility

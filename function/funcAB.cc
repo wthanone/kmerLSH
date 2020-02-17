@@ -1,18 +1,20 @@
 #include "funcAB.h"
 
-namespace Utility {
+namespace Core {
 
-void IO::SetAbundance(Abundance* abundance, const vector<int>& ids, const vector<double>& values, const vector<int>& locs) {
+void AB::SetAbundance(Abundance* abundance, const vector<int>& ids, const vector<double>& values, const vector<int>& locs) {
   (*abundance)._values = values;
   (*abundance)._locs = locs;
   (*abundance)._ids = ids;
 }
 
-void IO::UpdateAbundacneIDs(Abundance* abundance, const vector<int>& ids){
+void AB::UpdateAbundacneIDs(Abundance* abundance, const vector<int>& ids){
   (*abundance)._ids = ids;
 }
 
-void IO::convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance*>* abVec){
+void AB::convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, string file_name ){
+  vector<Abundance*> abVec, *abVec_ptr;
+  abVec_ptr = &abVec;
   uint16_t cnt;
   uint64_t num_kmers;
   vector<double> values;
@@ -37,16 +39,18 @@ void IO::convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sa
     }
     abundance = new Abundance();
     SetAbundance(abundance, ids, values, locs);
-    abVec->push_back(abundance);
+    abVec.push_back(abundance);
 
     totalValue = 0.0;
     values.clear();
     ids.clear();
     locs.clear();
   }
+  IOMat::SaveMatrix(abVec_ptr, file_name, "", tot_sample, false);
+  IOMat::SaveCluster(abVec_ptr, file_name+".clust", false);
 }
 /*
-void IO::randAbundance(Abundance* abundance, const Abundance& ab, double scale ){
+void AB::randAbundance(Abundance* abundance, const Abundance& ab, double scale ){
   random_device rd;
   mt19937 gen(rd());
   vector<double> new_gene_values;
@@ -64,7 +68,7 @@ void IO::randAbundance(Abundance* abundance, const Abundance& ab, double scale )
   }
   SetAbundance(abundance, false, count, title, new_gene_values, gene_locs);
 }
-void IO::randomAbundance(Abundance* abundance, int count, double scale){
+void AB::randomAbundance(Abundance* abundance, int count, double scale){
   vector<double> gene_ab;
   vector<int> gene_loc;
   double rand;
@@ -83,7 +87,7 @@ void IO::randomAbundance(Abundance* abundance, int count, double scale){
   SetAbundance(abundance, false, false, count,1, title, title, gene_ab, gene_loc);
 }
 */
-void IO::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundance& ab2) {
+void AB::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundance& ab2) {
   vector<double> new_ab_value;
   vector<double> ab_value1 = ab1._values, ab_value2 = ab2._values;
   vector<int> new_ab_loc;
@@ -130,7 +134,7 @@ void IO::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundanc
   SetAbundance(abundance, ab1_ids, new_ab_value, new_ab_loc);
 }
 
-void IO::SetMean(Abundance* abundance,const vector<Abundance*>& local_ab){
+void AB::SetMean(Abundance* abundance,const vector<Abundance*>& local_ab){
   int length = local_ab.size();
   Abundance* tmp = new Abundance();
   auto& previous = *(local_ab[0]);
@@ -143,7 +147,7 @@ void IO::SetMean(Abundance* abundance,const vector<Abundance*>& local_ab){
   abundance = tmp;
 }
 
-bool IO::isSameAb(Abundance* ab1, Abundance* ab2){
+bool AB::isSameAb(Abundance* ab1, Abundance* ab2){
   bool out = false;
   vector<double> ab_values1 = ab1->_values;
   vector<double> ab_values2 = ab2->_values;

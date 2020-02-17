@@ -22,20 +22,20 @@
 
 #include <getopt.h>
 
-#include "Common.hpp"
+#include "../common/Common.hpp"
 //#include "utils.hpp"
-#include "fastq.hpp"
-#include "Kmer.hpp"
-#include "HashTables.hpp"
+#include "../utils/fastq.hpp"
+#include "../kmer/Kmer.hpp"
+#include "../hash/HashTables.hpp"
 
 
-#include "alglib-3.8.2/src/statistics.h"
-#include "alglib-3.8.2/src/ap.h"
+#include "../utils/alglib-3.8.2/src/statistics.h"
+#include "../utils/alglib-3.8.2/src/ap.h"
 
-#include "kmc_api/kmc_file.h"
-#include "kmc_reader.hpp"
+#include "../kmer/kmc_api/kmc_file.h"
+#include "../kmer/kmc_reader.hpp"
 
-#include "threadpool.hpp"
+#include "../utils/threadpool.hpp"
 #include <boost/bind.hpp>
 //#include <boost/thread.hpp>
 using namespace std;
@@ -43,6 +43,187 @@ using namespace std;
 using namespace boost::threadpool;
 using namespace std::chrono;
 
+// structs for getopt
+struct SA_ProgramOptions {
+  size_t k;
+  string input1;
+  string input2;
+  string output1;
+  string output2;
+  int mode;
+  unsigned int num_threads;
+  int max_memory;
+  int count_min;
+  bool verbose;
+  bool kmc;
+  bool bin;
+  float kmer_vote; //ratio of unique kmers in a read to be claimed as unique read
+  float pvalue_thresh;
+  vector<string> files;
+
+  SA_ProgramOptions() : k(0), mode(1), num_threads(8), max_memory(12), count_min(2), verbose(false), kmc(false), bin(true), kmer_vote(0.5), pvalue_thresh(0.005) {}
+};
+
+void SA_PrintUsage() {
+  cerr << "SA " << SA_VERSION << endl << endl;
+  cerr << "Compare frequencies of k-mers [from KMC library] and saves differential reads results for each metagenome in comparison" << endl << endl;
+  cerr << "Usage: SA -k -a -b -o -p [options]";
+  cerr << endl << endl <<
+	"-k, --kmer-size=INT             Size of k-mers, at most " << (int) (Kmer::MAX_K-1)<< endl <<
+	"-a, --input1=STRING             Input filename for metagenome group A" << endl <<
+	"-b, --input2=STRING             Input filename for metagenome group B" << endl <<
+	"-o, --output1=STRING            Prefix for output of metagenome A" << endl <<
+	"-p, --output2=STRING            Prefix for output of metagenome B" << endl <<
+	"-v, --kmer-vote=FLOAT           Percentage threshold of differential k-mers in distinctive reads <default 0.5>" << endl <<
+	"-t, --number-threads=INT        Number of threads for running KMC etc. <default 8>" << endl <<
+	"-m, --max-memory=INT            Max memory for running KMC <default 12>" << endl <<
+	"-c, --count-min=INT            Min threshold of k-mer count for running KMC <default 2>" << endl <<
+	"-q, --pvalue-thresh=FLOAT       For U-test <default 0.005>" << endl <<
+	"-M, --mode=INT                  1 or 2 <default 1>" << endl <<
+	"    --kmc                       Call KMC (if you do not have kmc output; make sure kmc is available in the current environment)" << endl <<
+	"    --no-bin                    Do not generate kmer_count.bin (already existed)" << endl <<
+    "    --verbose                   Print messages during run" << endl << endl
+    ;
+}
+
+
+void SA_ParseOptions(int argc, char **argv, SA_ProgramOptions &opt) {
+  int verbose_flag = 0;
+  int kmc_flag = 0;
+  int bin_flag = 0;
+  const char* opt_string = "k:o:p:a:b:v:q:m:c:t:M:";
+  static struct option long_options[] =
+  {
+    {"verbose", no_argument,  &verbose_flag, 1},
+	{"kmc", no_argument, &kmc_flag, 1},
+	{"no-bin", no_argument, &bin_flag, 1},
+	{"kmer-size", required_argument, 0, 'k'},
+    {"output1", required_argument, 0, 'o'},
+	{"output2", required_argument, 0, 'p'},
+	{"input1", required_argument, 0, 'a'},
+	{"input2", required_argument, 0, 'b'},
+	{"kmer-vote", required_argument, 0, 'v'},
+	{"pvalue-thresh", required_argument, 0, 'q'},
+	{"max-memory", required_argument, 0, 'm'},
+	{"count-min", required_argument, 0, 'c'},
+	{"num-threads", required_argument, 0, 't'},
+    {"mode", required_argument, 0, 'M'},
+	{0,0,0,0}
+  };
+
+  int option_index = 0;
+  int c;
+  stringstream ss;
+  while (true) {
+    c = getopt_long(argc,argv,opt_string, long_options, &option_index);
+
+    if (c == -1) {
+      break;
+    }
+
+    switch (c) {
+	case 'k':
+	  opt.k = atoi(optarg);
+	  break;
+	case 'o':
+      opt.output1 = optarg;
+      break;
+	case 'p':
+	  opt.output2 = optarg;
+	  break;
+	case 'a':
+	  opt.input1 = optarg;
+	  break;
+	case 'b':
+	  opt.input2 = optarg;
+	  break;
+	case 'v':
+	  opt.kmer_vote = atof(optarg);
+	  break;
+	case 'q':
+	  opt.pvalue_thresh = atof(optarg);
+	  break;
+	case 'M':
+	  opt.mode = atoi(optarg);
+	  break;
+    	case 't':
+	  opt.num_threads = atoi(optarg);
+	  break;
+	case 'm':
+	  opt.max_memory = atoi(optarg);
+	  break;
+	case 'c':
+          opt.count_min = atoi(optarg);
+          break;
+	default: break;
+    }
+  }
+
+  if (verbose_flag) {
+	  opt.verbose = true;
+  }
+
+  if (kmc_flag) {
+	  opt.kmc = true;
+  }
+
+  if (bin_flag) {
+	  opt.bin = false;
+  }
+}
+
+
+bool SA_CheckOptions(SA_ProgramOptions &opt) {
+  bool ret = true;
+
+  if (opt.k <= 0 || opt.k >= MAX_KMER_SIZE) {
+	  cerr << "Error, invalid value for kmer-size: " << opt.k << endl;
+	  cerr << "Values must be between 1 and " << (MAX_KMER_SIZE-1) << endl;
+	  ret = false;
+  }
+
+
+  /*
+  if (opt.files1.size() == 0 || opt.files2.size() == 0) {
+    cerr << "Need to specify files for input" << endl;
+    ret = false;
+  } else {
+    struct stat stFileInfo;
+    vector<string>::const_iterator it;
+    int intStat;
+    for(it = opt.files1.begin(); it != opt.files1.end(); ++it) {
+      intStat = stat(it->c_str(), &stFileInfo);
+      if (intStat != 0) {
+	cerr << "Error: file not found, " << *it << endl;
+	ret = false;
+      }
+    }
+	for(it = opt.files2.begin(); it != opt.files2.end(); ++it) {
+      intStat = stat(it->c_str(), &stFileInfo);
+      if (intStat != 0) {
+	cerr << "Error: file not found, " << *it << endl;
+	ret = false;
+      }
+    }
+
+  }
+  */
+
+
+
+  //TODO: check if we have permission to write to outputfile
+
+  return ret;
+
+}
+
+void SA_PrintSummary(const SA_ProgramOptions &opt) {
+  cout << "Mode: " << opt.mode << endl;
+  cout << "kmer size: " << Kmer::k << endl;
+  cout << "Using kmer_vote: " << opt.kmer_vote << endl;
+  cout << "Using pvalue_thresh: " << opt.pvalue_thresh << endl;
+  cout << "Writing kmer_count.bin? " << std::boolalpha << opt.bin << endl;
+}
 
 //added by Mingjie on 02/12/2015
 //test kmer count in batches
@@ -99,119 +280,6 @@ void BatchTest(uint16_t **ary_count, int tot_sample, uint64_t batch_size, stream
 			}
 		}
 	}
-}
-
-void buildKHtable(pool &tp){
-
-    //call kmc
-  if (opt.kmc) {
-    if (opt.verbose) {
-      cout << endl << "...Running KMC using " << opt.num_threads << " threads..." << endl;
-      cout << "max_memory: " << opt.max_memory << endl;
-      cout << "kmer length: " << opt.k << endl;
-    }
-    steady_clock::time_point start_time = steady_clock::now();
-
-    for (int i=0; i<tot_sample; i++) {
-      string cmd = "kmc -k" + std::to_string(opt.k) + " -r -cs65535 -ci"+std::to_string(opt.count_min) +" -t" + std::to_string(opt.num_threads) + " -m" + std::to_string(opt.max_memory) + " " + samples[i] + " " + kmc_names[i] + " .";
-      std::system(cmd.c_str());
-    }
-    steady_clock::time_point end_time = steady_clock::now();
-    auto duration = duration_cast<std::chrono::minutes>(end_time - start_time).count();
-    cout << "Running KMC takes " << duration << " minutes\n";
-  }
-  //exit(0);
-
-  t1 = steady_clock::now();
-
-  if (opt.verbose) {
-    cout << endl << "...Reading kmc files..." << endl;
-  }
-
-
-  for (int i=0; i<tot_sample; i++) {
-    cout << kmc_names[i] << " : start reading" << endl;
-		KmcRead(kmc_names[i], kmap_ptr, opt.verbose, tp, act_threads);
-    cout << "finishing reading kmc" << endl;
-    if (opt.verbose) {
-      cout << kmap.size() << endl;
-      cout << "load factor: " << kmap.load_factor() << endl;
-    }
-  }
-
-  //record the kmer in vector based on the order of kmer in the hash table
-  //for random access of kmers in BatchTest
-
-    t2 = steady_clock::now();
-    auto duration12 = duration_cast<std::chrono::minutes>(t2 - t1).count();
-    cout << "Running KmcRead takes " << duration12 << " minutes\n";
-
-    FILE *kmer_file;
-    if ((kmer_file = fopen("kmer_set.hex", "w")) == NULL) {
-      cerr << "Unable to write kmer_set.hex file\n";
-      exit(1);
-    }
-
-    kmap_size = kmap.size();
-    kvec.resize(kmap_size);
-
-    Kmer km;
-    size_t idx_k = 0;
-    for(auto it=kmap.cbegin(); !it.is_end();++it) {
-      km = it->first;
-      kvec[idx_k] = km;
-      km.writeBytes(kmer_file);
-      idx_k ++;
-    }
-    fclose(kmer_file);
-
-    t3 = steady_clock::now();
-    auto duration23 = duration_cast<std::chrono::minutes>(t3 - t2).count();
-    cout << "Creating vector and writing kmer_set.hex takes " << duration23 << " minutes\n";
-
-    //write out kmer count info
-    FILE *bin_count_file;
-    FILE *log_file; //record total number of kmers in each sample
-    if ((bin_count_file = fopen("kmer_count.bin", "wb")) == NULL) {
-      cerr << "Unable to write kmer_count.bin file\n";
-      exit(1);
-    }
-    if ((log_file = fopen("kmer_count.log", "w")) == NULL) {
-      cerr << "Unable to write kmer_count.log file\n";
-      exit(1);
-    }
-
-    if (opt.verbose) {
-      cout << "\n...Counting kmers and writing to binary..." << endl;
-    }
-
-    fprintf(log_file, "%llu", kmap_size);
-
-    for(vector<string>::iterator it=kmc_names.begin(); it!=kmc_names.end(); ++it) {
-      string tmp = *it;
-
-      if (opt.verbose) {
-      cout << tmp << endl;
-      }
-
-      InitializeHT(kmap_ptr);
-
-      kmer_coverage = KmcCount(tmp, kmap_ptr, opt.verbose, tp, act_threads);
-      v_kmers.push_back(kmer_coverage);
-      fprintf(log_file, "\t%llu", kmer_coverage);
-
-      WriteHT(kmap_ptr, bin_count_file);
-    }
-    fclose(bin_count_file);
-    fclose(log_file);
-
-    t4 = steady_clock::now();
-    auto duration34 = duration_cast<std::chrono::minutes>(t4 - t3).count();
-    cout << "Running KmcCount and writing to binary takes " << duration34 << " minutes\n";
-
-    //free the memory of kmap
-    kmap.clear();
-    tp.clear();
 }
 
 
@@ -278,7 +346,7 @@ void SA(int argc, char **argv) {
 	}
   if (opt.bin){
 		pool tp(opt.num_threads);
-
+		buildKHtable();
 
   }
 	else {
@@ -292,22 +360,20 @@ void SA(int argc, char **argv) {
 			ss >> kmer_coverage;
 			v_kmers.push_back(kmer_coverage);
 		}
-
-		//read kmers in kvec to restore the original kmer order in kmap
-		ifstream kmer_file("kmer_set.hex");
-
-		kvec.resize(kmap_size);
-
-		uint8_t bytes[(Kmer::MAX_K)/4];
-		size_t idx_k = 0;
-		for (size_t i = 0; i < kmap_size; i++) {
-			kmer_file.read(reinterpret_cast<char*> (&bytes[0]), sizeof(bytes[0])*(Kmer::MAX_K)/4);
-			Kmer km(bytes);
-			kvec[idx_k] = km;
-			idx_k ++;
-		}
-		t4 = steady_clock::now();
 	}
+
+	//read kmers in kvec to restore the original kmer order in kmap
+	ifstream kmer_file("kmer_set.hex");
+	kvec.resize(kmap_size);
+	uint8_t bytes[(Kmer::MAX_K)/4];
+	size_t idx_k = 0;
+	for (size_t i = 0; i < kmap_size; i++) {
+		kmer_file.read(reinterpret_cast<char*> (&bytes[0]), sizeof(bytes[0])*(Kmer::MAX_K)/4);
+		Kmer km(bytes);
+		kvec[idx_k] = km;
+		idx_k ++;
+	}
+	t4 = steady_clock::now();
 
 	ifstream inStream("kmer_count.bin", ios::binary);
 

@@ -1,5 +1,5 @@
-#ifndef HASH_H
-#define HASH_H
+#ifndef __HASH_H__
+#define __HASH_H__
 
 #include <stdint.h> /* Replace with <stdint.h> if appropriate */
 #undef get16bits

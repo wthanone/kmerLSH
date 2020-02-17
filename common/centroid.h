@@ -6,7 +6,6 @@
 #include <string>
 
 #include "abundance.h"
-#include "params.h"
 
 using std::endl;
 using std::fabs;
@@ -46,7 +45,7 @@ class Centroid {
 	_num_clustered = ab._num_clustered;
     return *this;
   }
-  
+
   friend ostream& operator<<(ostream& os, const Abundance& abundance);
 /*
   bool shareTopPeaks(const Spectrum& other, double epsilon) {

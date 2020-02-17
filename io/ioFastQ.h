@@ -42,16 +42,10 @@ using namespace std;
 using namespace boost::threadpool;
 using namespace std::chrono;
 
-void GetInput(string input, vector<string> &samples, vector<string> &kmc_names);
+namespce Utility{
+//identification of distinctive reads using multi-threads
+void CheckRead(uset_t *g_kmer_ptr, vector<ReadEntry> &read_vec, vector<int> &record_vec, unsigned int num_threads, int tid, float kmer_vote, uset_t *large_kmer_count_ptr)
 
-//initialize hash table with 0
-void InitializeHT(ckhmap_t *kmap_ptr);
-
-//added by Mingjie on 02/11/2015
-void WriteHT(ckhmap_t *kmap_ptr, FILE *outfile);
-
-//added by Mingjie on 02/12/2015
-//load kmer count info in batches
-void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t **ary_count, uint64_t batch_size, streamoff batch_offset);
-
-void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);
+//extract distinctive reads for each sample
+void ReadExtract(uset_t *g_kmer_ptr, vector<string> &files, string output, float kmer_vote, bool verbose, pool &tp, unsigned int num_threads, uset_t *large_kmer_count_ptr)
+}

@@ -10,7 +10,7 @@
 #include <cassert>
 #include <cstring>
 
-#include "hash.h"
+#include "../hash/hash.h"
 
 
 //for debug
@@ -26,11 +26,11 @@ class Kmer {
   Kmer();
   Kmer(const Kmer& o);
   Kmer(uint8_t *inbytes);
-  explicit Kmer(const char *s); 
-  
+  explicit Kmer(const char *s);
+
 
   Kmer& operator=(const Kmer& o);
-  
+
   void set_deleted();
 
   bool operator<(const Kmer& o) const;
@@ -45,7 +45,7 @@ class Kmer {
 
   uint64_t hash() const;
 
-  
+
 
   Kmer twin() const;
 
@@ -54,9 +54,9 @@ class Kmer {
   Kmer forwardBase(const char b) const;
 
   Kmer backwardBase(const char b) const;
-  
+
   void printBinary() const;
-  
+
   void toString(char * s) const;
 
   void writeBytes(FILE *kmer_file) const;

@@ -8,7 +8,7 @@
 #include "libcuckoo/cuckoohash_map.hh"
 
 #include "hash.h"
-#include "KmerIntPair.h"
+#include "../kmer/KmerIntPair.h"
 
 
 //using google::sparse_hash_map;

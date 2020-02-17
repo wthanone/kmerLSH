@@ -1,5 +1,5 @@
-#ifndef KLSH_COMMON_HPP
-#define KLSH_COMMON_HPP
+#ifndef KLSH_COMMON_H
+#define KLSH_COMMON_H
 
 using namespace std;
 

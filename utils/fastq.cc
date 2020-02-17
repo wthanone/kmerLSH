@@ -3,7 +3,7 @@
 #include <zlib.h>
 #include <iostream>
 
-#include "kseq.h"
+#include "../kmer/kseq.h"
 #include "fastq.h"
 
 

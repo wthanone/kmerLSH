@@ -1,5 +1,5 @@
-#ifndef __UTILITY_IO_H__
-#define __UTILITY_IO_H__
+#ifndef __CORE_AB_H__
+#define __CORE_AB_H__
 
 #include <algorithm>
 #include <cassert>
@@ -20,19 +20,19 @@
 #include <utility>
 #include <vector>
 
-#include "abundance.h"
-#include "params.h"
+#include "../common/abundance.h"
+#include "../common/params.h"
 
 using namespace std;
 using namespace Core;
 
-namespace Utility {
+namespace Core {
 class AB {
  public:
   static void randAbundance(Abundance* abundance, const Abundance& ab, double scale);
   static void SetAbundance(Abundance* abundance,const vector<string>& kmers, const vector<double>& values, const vector<int>& locs) ;
   static void SetNullAbundance(Abundance* abundance);
-
+  static void convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance*>* abVec);
   static void SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundance& ab2);
 
   static void SetMean(Abundance* abundance,const vector<Abundance*>& local_ab);

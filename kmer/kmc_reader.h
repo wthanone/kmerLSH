@@ -5,9 +5,9 @@
 #include <vector>
 #include "kmc_api/kmc_file.h"
 #include "Kmer.h"
-#include "HashTables.h"
+#include "../hash/HashTables.h"
 #include "kmc_api/kmer_defs.h"
-#include "threadpool.hpp"
+#include "../utils/threadpool.hpp"
 #include <boost/bind.hpp>
 using namespace boost::threadpool;
 using namespace std;

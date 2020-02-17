@@ -10,7 +10,7 @@
 #include <string>
 
 #include "../common/Common.h"
-#include "kseq.h"
+#include "../kmer/kseq.h"
 
 // initialize kseq structures
 //KSEQ_INIT(gzFile, gzread);
@@ -35,7 +35,7 @@ class FastqFile {
   int read(vector<ReadEntry> &read_vec, size_t &num_reads);
   uint64_t part_size = 1 << 16;
 
-  
+
  private:
   vector<string>::const_iterator open_next();
 

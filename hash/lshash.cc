@@ -1,5 +1,5 @@
-#include "hash.h"
-namespace Core {
+#include "lshash.h"
+namespace Hash {
   hashFunction LSH::generateNormalHashFunc(int size) {
     hashFunction function(size, 0);
 
@@ -10,9 +10,9 @@ namespace Core {
     for (int i = 0; i < size; ++i) {
       function[i] = dis(gen);
     }
-    
+
     //TODO: Might need to consider normalization.
-    
+
     return function;
   }
 
@@ -27,9 +27,9 @@ namespace Core {
     for (int i = 0; i < size; ++i) {
       function[i] = dis(gen);
     }
-    
+
     //TODO: Might need to consider normalization.
-    
+
     return function;
   }
 
@@ -74,4 +74,3 @@ namespace Core {
     return key;
   }
 }
-

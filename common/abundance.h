@@ -5,8 +5,6 @@
 #include <iostream>
 #include <string>
 
-#include "params.h"
-
 using std::endl;
 using std::fabs;
 using std::ostream;
