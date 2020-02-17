@@ -21,7 +21,6 @@
 #include <vector>
 
 #include "../common/abundance.h"
-#include "../common/params.h"
 
 using namespace std;
 using namespace Core;

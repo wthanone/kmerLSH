@@ -26,10 +26,7 @@
 #include "../utils/fastq.h"
 #include "../kmer/Kmer.h"
 #include "../hash/HashTables.h"
-#include "../common/abudnace.h"
-
-#include "../utils/alglib-3.8.2/src/statistics.h"
-#include "../utils/alglib-3.8.2/src/ap.h"
+#include "../common/abundance.h"
 
 #include "../kmer/kmc_api/kmc_file.h"
 #include "../kmer/kmc_reader.h"

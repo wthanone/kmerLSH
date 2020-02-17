@@ -28,7 +28,6 @@
 #include <unordered_set>
 #include <thread>
 
-#include "../common/params.h"
 #include "../common/Common.h"
 #include "../common/abundance.h"
 
@@ -49,8 +48,6 @@
 #include "../kmer/kmc_reader.h"
 #include "../kmer/Kmer.h"
 
-#include "../utils/alglib-3.8.2/src/statistics.h"
-#include "../utils/alglib-3.8.2/src/ap.h"
 #include "../utils/threadpool.hpp"
 #include <boost/bind.hpp>
 

@@ -81,6 +81,8 @@ void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t 
 }
 
 void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
+	int tot_sample = samples.size();
+	size_t kmap_size, kmer_coverage;
 	ckhmap_t kmap, *kmap_ptr;
 	kmap_ptr = &kmap;
 	auto start_time_total = chrono::high_resolution_clock::now();
@@ -90,7 +92,7 @@ void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, siz
 		if (verbose) {
 			cout << endl << "...Running KMC using " << num_threads << " threads..." << endl;
       cout << "max_memory: " << max_memory << endl;
-      cout << "kmer length: " << k << endl;
+      cout << "kmer length: " << ksize << endl;
     }
     auto start_time = chrono::high_resolution_clock::now();
 
@@ -111,9 +113,9 @@ void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, siz
   }
 
   for (int i=0; i<tot_sample; i++) {
-    cout << kmc_names[i] << " : start reading" << endl;
-		KmcRead(kmc_names[i], kmap_ptr, verbose, tp, act_threads);
-    cout << "finishing reading kmc" << endl;
+	cout << kmc_names[i] << " : start reading" << endl;
+	KmcRead(kmc_names[i], kmap_ptr, verbose, tp, num_threads);
+	cout << "finishing reading kmc" << endl;
     if (verbose) {
       cout << kmap.size() << endl;
       cout << "load factor: " << kmap.load_factor() << endl;
@@ -170,13 +172,13 @@ void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, siz
       string tmp = *it;
 
       if (verbose) {
-				cout << tmp << endl;
+		cout << tmp << endl;
       }
 
       InitializeHT(kmap_ptr);
 
-      kmer_coverage = KmcCount(tmp, kmap_ptr, verbose, tp, act_threads);
-      v_kmers.push_back(kmer_coverage);
+      kmer_coverage = KmcCount(tmp, kmap_ptr, verbose, tp, num_threads);
+      v_kmers->push_back(kmer_coverage);
       fprintf(log_file, "\t%llu", kmer_coverage);
 
       WriteHT(kmap_ptr, bin_count_file);

@@ -5,7 +5,7 @@ UTIL_DIR := utils
 HASH_DIR := hash
 IO_DIR := io
 KMC_API_DIR := $(KMER_DIR)/kmc_api
-ALGLIB_DIR := $(UTIL_DIR)/alglib-3.8.2/src
+ALGLIB_DIR := $(UTIL_DIR)/alglib-3.15.0/src
 CUR_DIR := $(notdir $(shell pwd))
 
 INC := -I ./
