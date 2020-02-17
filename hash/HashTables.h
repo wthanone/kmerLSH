@@ -5,7 +5,7 @@
 //#include "google/sparse_hash_map"
 //#include "google/sparsehash/sparsehashtable.h"
 
-#include "libcuckoo/cuckoohash_map.hh"
+#include "../utils/libcuckoo/cuckoohash_map.hh"
 
 #include "hash.h"
 #include "../kmer/KmerIntPair.h"

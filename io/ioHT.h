@@ -22,20 +22,19 @@
 
 #include <getopt.h>
 
-#include "Common.hpp"
 //#include "utils.hpp"
-#include "fastq.hpp"
-#include "Kmer.hpp"
-#include "HashTables.hpp"
-#include "abudnace.h"
+#include "../utils/fastq.h"
+#include "../kmer/Kmer.h"
+#include "../hash/HashTables.h"
+#include "../common/abudnace.h"
 
-#include "alglib-3.8.2/src/statistics.h"
-#include "alglib-3.8.2/src/ap.h"
+#include "../utils/alglib-3.8.2/src/statistics.h"
+#include "../utils/alglib-3.8.2/src/ap.h"
 
-#include "kmc_api/kmc_file.h"
-#include "kmc_reader.hpp"
+#include "../kmer/kmc_api/kmc_file.h"
+#include "../kmer/kmc_reader.h"
 
-#include "threadpool.hpp"
+#include "../utils/threadpool.hpp"
 #include <boost/bind.hpp>
 //#include <boost/thread.hpp>
 using namespace std;
