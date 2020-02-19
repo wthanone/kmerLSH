@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <cstdio>
 #include <cmath>
 #include <fcntl.h>
 #include <fstream>
@@ -37,12 +38,13 @@ class IOMat {
 
    static void ReadCluster(vector<Abundance*>* AbundanceMat, string file_name);
 
-   static void ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim, int* _size, bool normalization,  string file_name ) ;
+   static void ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,  bool normalization,  string file_name ) ;
 
-   static void SaveResult(const vector<Abundance*>* abs_all, string out_dir);
+   static void SaveResult(const vector<Abundance*>* abs_all, string out_dir, bool delfile);
 
-   static void SaveMatrix(const vector<Abundance*>* abs_all, string out_file, string head, int dim);
+   static void SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int dim, bool delfile);
 
+   static void convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, string file_name);
 };
 
 }  // namespace Utility

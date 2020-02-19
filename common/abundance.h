@@ -4,11 +4,15 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <utility>
+#include <vector>
+
 
 using std::endl;
 using std::fabs;
 using std::ostream;
 using std::string;
+using std::vector;
 
 namespace Core {
 class Abundance {

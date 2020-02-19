@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "../common/params.h"
 
 #include <iostream>
 using namespace std;

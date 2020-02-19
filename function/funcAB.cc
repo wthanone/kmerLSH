@@ -8,46 +8,8 @@ void AB::SetAbundance(Abundance* abundance, const vector<int>& ids, const vector
   (*abundance)._ids = ids;
 }
 
-void AB::UpdateAbundacneIDs(Abundance* abundance, const vector<int>& ids){
+void AB::UpdateAbundanceIDs(Abundance* abundance, const vector<int>& ids){
   (*abundance)._ids = ids;
-}
-
-void AB::convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, string file_name ){
-  vector<Abundance*> abVec, *abVec_ptr;
-  abVec_ptr = &abVec;
-  uint16_t cnt;
-  uint64_t num_kmers;
-  vector<double> values;
-  vector<int> locs, ids;
-  double value, totalValue;
-  Abundance* abundance;
-
-  for(uint64_t i=0; i<batch_size; i++){
-    ids.push_back(batch_offset+i);
-    for (int j =0; j<tot_sample;j++){
-      cnt = ary_count[j][i];
-      if (cnt > 0){
-        num_kmers = v_kmers[j];
-        locs.push_back(j);
-        value = double(cnt) * 1000000 / num_kmers ;
-        totalValue += pow(value, 2);
-        values.push_back(value);
-      }
-    }
-    for(int k=0; k < values.size(); k++){
-      values[k] /= sqrt(totalValue);
-    }
-    abundance = new Abundance();
-    SetAbundance(abundance, ids, values, locs);
-    abVec.push_back(abundance);
-
-    totalValue = 0.0;
-    values.clear();
-    ids.clear();
-    locs.clear();
-  }
-  IOMat::SaveMatrix(abVec_ptr, file_name, "", tot_sample, false);
-  IOMat::SaveCluster(abVec_ptr, file_name+".clust", false);
 }
 /*
 void AB::randAbundance(Abundance* abundance, const Abundance& ab, double scale ){

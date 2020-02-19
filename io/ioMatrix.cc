@@ -64,24 +64,25 @@ void IOMat::ReadCluster(vector<Abundance*>* AbundanceMat, string file_name){
     new_ids.clear();
 
     lineStart = line.c_str();
-    id = strtol(lineStart, &lineEnd);
-    new_ids.push_back((int) id);
+    id = (int) strtod(lineStart, &lineEnd);
+    new_ids.push_back( id);
 
     while(lineStart != lineEnd){
       // https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
       lineStart = lineEnd;
-      id = strtol(lineStart, &lineEnd);
-      new_ids.push_back((int) id);
+      id =(int) strtod(lineStart, &lineEnd);
+      new_ids.push_back( id);
     }
     AB::UpdateAbundanceIDs(AbundanceMat->at(loc), new_ids);
     loc++;
   }
 }
 
-void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim, int* _size, bool normalization,  string file_name ) {
+void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim, bool normalization,  string file_name ) {
   int sample_cnt = 0;
   int line_cnt = 0;
   double totalvalueAb= 0.0;
+  double valueAb;
   vector<double> nonzero_ab;
   vector<int> nonzero_loc, ids;
   string line;
@@ -144,21 +145,20 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
 }
 
 void IOMat::SaveResult(const vector<Abundance*>* abs_all, string out_file, bool delfile){
-  //1) save _ids
-  vector<double> values;
+  vector<int> ids;
 
   if (delfile){
-    if(remove(out_file) != 0){
+    if(remove(out_file.c_str()) != 0){
       perror("File deletion failed");
     }
     else{
       cout << "files are removed" << endl;
     }
   }
-  ofstream out
+  ofstream out;
   out.open(out_file, fstream::out | fstream::app);
   for (int i = 0; i < abs_all->size(); ++i) {
-		ids = abs_all->at(i)->_ids;
+	ids = abs_all->at(i)->_ids;
     out << ids[0];
 		for(int j=1; j< ids.size(); j++){
 			out << "\t" << ids[j] ;
@@ -171,7 +171,7 @@ void IOMat::SaveResult(const vector<Abundance*>* abs_all, string out_file, bool 
 
 void IOMat::SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int dim, bool delfile) {
   if (delfile){
-    if(remove(out_file) != 0){
+    if(remove(out_file.c_str()) != 0){
       perror("File deletion failed");
     }
     else{
@@ -203,6 +203,44 @@ void IOMat::SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int d
 		out << endl;
 	}
 	out.close();
+}
+
+void IOMat::convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, string file_name ){
+  vector<Abundance*> abVec, *abVec_ptr;
+  abVec_ptr = &abVec;
+  uint16_t cnt;
+  uint64_t num_kmers;
+  vector<double> values;
+  vector<int> locs, ids;
+  double value, totalValue;
+  Abundance* abundance;
+
+  for(uint64_t i=0; i<batch_size; i++){
+    ids.push_back(batch_offset+i);
+    for (int j =0; j<tot_sample;j++){
+      cnt = ary_count[j][i];
+      if (cnt > 0){
+        num_kmers = v_kmers[j];
+        locs.push_back(j);
+        value = double(cnt) * 1000000 / num_kmers ;
+        totalValue += pow(value, 2);
+        values.push_back(value);
+      }
+    }
+    for(int k=0; k < values.size(); k++){
+      values[k] /= sqrt(totalValue);
+    }
+    abundance = new Abundance();
+    AB::SetAbundance(abundance, ids, values, locs);
+    abVec.push_back(abundance);
+
+    totalValue = 0.0;
+    values.clear();
+    ids.clear();
+    locs.clear();
+  }
+  SaveMatrix(abVec_ptr, file_name, tot_sample, false);
+  SaveResult(abVec_ptr, file_name+".clust", false);
 }
 
 }  // namespace Utility

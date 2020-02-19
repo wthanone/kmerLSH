@@ -29,9 +29,9 @@ namespace Core {
 class AB {
  public:
   static void randAbundance(Abundance* abundance, const Abundance& ab, double scale);
-  static void SetAbundance(Abundance* abundance,const vector<string>& kmers, const vector<double>& values, const vector<int>& locs) ;
+  static void SetAbundance(Abundance* abundance,const vector<int>& ids, const vector<double>& values, const vector<int>& locs) ;
   static void SetNullAbundance(Abundance* abundance);
-  static void convertHTAB(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, int num_sample, vector<Abundance*>* abVec);
+  static void UpdateAbundanceIDs(Abundance* abundance, const vector<int>& ids);
   static void SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundance& ab2);
 
   static void SetMean(Abundance* abundance,const vector<Abundance*>& local_ab);

@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 #include <functional>
 
-#include <getparams.h>
+#include <getopt.h>
 
 #include <mutex>
 #include <unistd.h>
@@ -84,28 +84,28 @@ void PrintHyperParams(const HyperParams& params) {
   cout << "cluster result file path: " << params.mat_file_name << endl;
   cout << "hash function num: " << params.hash_func_num << endl;
   cout << "input file name: " << params.kmc_file_name << endl;
-  cout << "scale : " << params.scale<< endl;
   cout << "min similarity: " << params.min_similarity << endl;
   cout << "threds to use: " << params.threads_to_use << endl;
   cout << "********************************************************" << endl;
 }
 
 void kLSH_PrintUsage() {
-  cerr << "kmers LSH " << endl << endl;
+  cerr << "kmers LSH "<< KLSH_VERSION << endl << endl;
   cerr << "Clustering of k-mers [from KMC library] " << endl << endl;
-  cerr << "Usage: kLSH -k -a -b -o -p [options]";
+  cerr << "Usage: kLSH -o -i -m [options]";
   cerr << endl << endl <<
 	"-k, --kmer-size=INT             Size of k-mers, at most " << (int) (Kmer::MAX_K-1)<< endl <<
-	"-a, --input=STRING             Input filename for metagenome group A" << endl <<
+	"-i, --input=STRING             Input filename for metagenome group A" << endl <<
 	"-o, --output=STRING            Prefix for output of metagenome A" << endl <<
+	"-m, --matrix=STRING            Prefix for output of metagenome A" << endl <<
 	"-v, --kmer-vote=FLOAT           Percentage threshold of differential k-mers in distinctive reads <default 0.5>" << endl <<
 	"-t, --number-threads=INT        Number of threads for running KMC etc. <default 8>" << endl <<
 	"-m, --max-memory=INT            Max memory for running KMC <default 12>" << endl <<
 	"-c, --count-min=INT            Min threshold of k-mer count for running KMC <default 2>" << endl <<
 	"-M, --mode=STRING                Optional K : run kmc, B : make bin file, M : make matrix file, C : clustering " << endl <<
-  "    --verbose                   Print messages during run" << endl << endl
-  "    --only                   Run only the setting mode " << endl << endl
-    ;
+	"    --verbose                   Print messages during run" << endl << endl <<
+	"    --only                   Run only the setting mode " << endl << endl
+	;
 }
 
 void SetHyperParams(HyperParams* params) {
@@ -118,7 +118,7 @@ void SetHyperParams(HyperParams* params) {
   (*params).bin = true;
   (*params).mat = true;
   (*params).clustering = true;
-  (*params).max_memory = ;
+  (*params).max_memory = 12;
   (*params).count_min = 2;
   (*params).k = 23;
 }
@@ -194,7 +194,7 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
       }
     }
     if (verbose_flag) {
-      params.verbose = true;
+      (*params).verbose = true;
     }
 
     if (only_flag){
@@ -213,7 +213,7 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
         (*params).kmc = false;
         (*params).clustering = false;
       }
-      else if (mode == 'C'){
+      else if (mode == "C"){
         (*params).bin = false;
         (*params).mat = false;
         (*params).kmc = false;
@@ -235,15 +235,19 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
   }
 
 void kmerCluster(HyperParams& params){
-  string<vector> samples, kmc_names;
+  vector<string> samples, kmc_names;
   vector<size_t> v_kmers;
   int tot_sample;
   Kmer::set_k(params.k);
+  size_t kmap_size, kmer_coverage;
 
   GetInput(params.kmc_file_name, samples, kmc_names);
 
   if (params.kmc && params.bin){
-    buildKHtable( &v_kmers, pool &tp,  params.kmc, params.verbose, params.k, params.count_min, params.num_threads, params.max_memory, samples, kmc_names);
+	pool tp(params.threads_to_use);
+    buildKHtable( &v_kmers,  tp,  params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
+  	tp.wait();
+	tp.clear();
   }
 
   if (params.mat){
@@ -273,7 +277,7 @@ void kmerCluster(HyperParams& params){
   	if (params.verbose) {
   	  cout << "\n...Loading and testing in batches..." << endl;
   	}
-    if(remove(params.mat_file_name) != 0){
+    if(remove(params.mat_file_name.c_str()) != 0){
       perror("File deletion failed");
     }
     else{
@@ -286,7 +290,7 @@ void kmerCluster(HyperParams& params){
   	  batch_size = batch_thresh;
 
   	  ReadHT(inStream, tot_sample, kmap_size, ary_count, batch_size, batch_offset);
-  	  AB::convertHTAB(**ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
+  	  IOMat::convertHTMat(ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
 
   	  //cout << g_kmer1.size() << "\t" << g_kmer2.size() <<endl;
 
@@ -300,7 +304,7 @@ void kmerCluster(HyperParams& params){
   	if(kcnt_rem > 0 && kcnt_rem < batch_thresh) {
   	  batch_size = kcnt_rem;
   	  ReadHT(inStream, tot_sample, kmap_size, ary_count, batch_size, batch_offset);
-  	  AB::convertHTAB(**ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
+  	  IOMat::convertHTMat(ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
   	}
 
   	for (int i = 0; i < tot_sample; ++i) {
@@ -313,7 +317,7 @@ void kmerCluster(HyperParams& params){
 
   if (params.clustering){
     //read matrix file
-    clustering(params.mat_file_name, params.result_file_name, params.min_similarity, params.cluster_iteration, params.hash_func_num, params.threads_to_use, false);
+    Cluster(params.mat_file_name, params.result_file_name, params.min_similarity, params.cluster_iteration, params.hash_func_num, params.threads_to_use, false, params.verbose);
   }
 
 }
@@ -322,10 +326,10 @@ int main(int argc, char **argv) {
 	if (argc < 2) {
 		kLSH_PrintUsage();
 	} else {
-    HyperParams params;
-    SetHyperParams(&params);
-    ParsingCommands(argc, argv, &params);
-    PrintHyperParams(params);
-    kmerCluster(params);
+    	HyperParams params;
+    	SetHyperParams(&params);
+    	ParsingCommands(argc, argv, &params);
+    	PrintHyperParams(params);
+    	kmerCluster(params);
 	}
 }
