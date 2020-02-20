@@ -14,8 +14,6 @@ void p_lsh(vector<Abundance*> &hash_values, vector<int> &hash_keys, hashTable& h
   for (int i = 0; i < num_points; ++i) {
     auto& abundance = *(unknown_abs[i]);
     int key = LSH::random_projection(abundance._values,abundance._locs, hash_table);
-	//cout << abundance << endl;
-	//cout << "key : " << key << endl;
     local_hash_values.push_back(unknown_abs[i]);
     local_hash_keys.push_back(key);
   }
@@ -31,8 +29,8 @@ void merge_hashtable(vector<vector<Abundance*>>* final_table, int hash_func_num,
   for (int i = 0; i < part_hash_keys.size(); ++i) {
     for (int j = 0; j < part_hash_keys[i].size(); ++j) {
       const auto& key = part_hash_keys[i].at(j);
-      const auto& ptr = part_hash_values[i].at(j);
-      local_table[key].push_back(ptr);
+	  //cout << "merge hashtable key : "<< key << " i :" << i << " j : " << j << endl;
+      local_table[key].push_back(part_hash_values[i].at(j));
     }
   }
   //cout << "merge hashtable check 1" << endl;
@@ -127,7 +125,7 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
 	cout << "reading Matrix takes secs:\t" << elapsed_read << endl;
   }
  
-
+  while (iter++ < cluster_iteration) {
   int abundance_per_thread = unknown_abundance.size() / threads_to_use;
   vector<vector<Abundance*>> part_abundance(threads_to_use, vector<Abundance*>());
   for (int i = 0; i < threads_to_use; ++i) {
@@ -138,7 +136,7 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
     int start_index = i * abundance_per_thread;
     part_abundance[i].insert(part_abundance[i].end(), unknown_abundance.begin()+start_index, unknown_abundance.begin()+start_index+abundance_to_do);
   }
-  while (iter++ < cluster_iteration) {
+ // while (iter++ < cluster_iteration) {
     vector<vector<Abundance*>> lsh_table(buckets, vector<Abundance*>());
     threshold -= sim_step;
 	if (verbose){
@@ -166,7 +164,7 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
     for (int i = 0; i < threads_to_use; ++i) {
       tp.schedule(boost::bind(p_lsh, boost::ref(part_hash_values[i]), boost::ref(part_hash_keys[i]), hash_table, part_abundance[i], buckets));
     }
-    //tp.wait();
+    tp.wait();
     //tp.clear();
     // Merge thread results.
 
@@ -222,7 +220,7 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
 
       end_time = chrono::high_resolution_clock::now();
       elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_each_cluster).count();
-      cout << "clustering "<< tid << " takes secs:\t" << elapsed_read << endl;
+      //cout << "clustering "<< tid << " takes secs:\t" << elapsed_read << endl;
     }
 
     tp.wait();
@@ -239,8 +237,8 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
     elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_clustering).count();
     cout << "clustering takes secs:\t" << elapsed_read << endl;
     cout << endl;
-  }
-
+  
+///////////}
   auto start_time_merge = chrono::high_resolution_clock::now();
   merge_abundance(unknown_abundance_ptr, part_abundance);
 
@@ -254,6 +252,8 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
   end_time = chrono::high_resolution_clock::now();
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_merge).count();
   cout << "merging takes secs:\t" << elapsed_read << endl;
+  }
+
 
   end_time = chrono::high_resolution_clock::now();
   elapsed_read = chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time_total).count();

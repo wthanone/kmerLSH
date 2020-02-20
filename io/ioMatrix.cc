@@ -65,16 +65,15 @@ void IOMat::ReadCluster(vector<Abundance*>* AbundanceMat, string file_name){
 
     lineStart = line.c_str();
     id = (int) strtod(lineStart, &lineEnd);
-    new_ids.push_back( id);
 
     while(lineStart != lineEnd){
       // https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
+      new_ids.push_back(id);
       lineStart = lineEnd;
       id =(int) strtod(lineStart, &lineEnd);
-      new_ids.push_back( id);
     }
     AB::UpdateAbundanceIDs(AbundanceMat->at(loc), new_ids);
-    loc++;
+	loc++;
   }
 }
 
@@ -111,18 +110,18 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
 
     lineStart = line.c_str();
     valueAb = strtod(lineStart, &lineEnd);
-    ids.push_back((int) valueAb);
+    ids.push_back(line_cnt);
 
     while(lineStart != lineEnd){
       // https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
-      lineStart = lineEnd;
-      valueAb = strtod(lineStart, &lineEnd);
       ++sample_cnt;
       if (valueAb > 0){
         nonzero_ab.push_back(valueAb);
         if(normalization){totalvalueAb += pow(valueAb, 2);}
         nonzero_loc.push_back(sample_cnt);
       }
+	  lineStart = lineEnd;
+      valueAb = strtod(lineStart, &lineEnd);
     }
 
     //check using normalization
@@ -136,7 +135,7 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
     AB::SetAbundance(abundance, ids, nonzero_ab, nonzero_loc);
     (*AbundanceMat).push_back(abundance);
     ++line_cnt;
-    *dim = sample_cnt-1;
+    *dim = sample_cnt;
     sample_cnt = 0;
     totalvalueAb = 0;
   }
@@ -182,25 +181,31 @@ void IOMat::SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int d
   out.open(out_file, fstream::out | fstream::app);
 
 	for (int i = 0; i < abs_all->size(); ++i) {
-		out << i ;
 		int k =0;
 		vector<int> locs = abs_all->at(i)->_locs;
 		vector<double> values = abs_all->at(i)->_values;
-		for(int j=0; j<dim; ++j){
+		for(int j=0; j<dim-1; ++j){
 			if (k < locs.size()){
 				if(j == locs[k]){
-					out << "\t" << values[k];
+					out << values[k] << "\t";
 					k++;
 				}
 				else{
-					out<< "\t0";
+					out<< "0\t";
 				}
 			}
 			else {
-				out<< "\t0";
+				out<< "0\t";
 			}
 		}
-		out << endl;
+		if ( k < locs.size()){
+		  out << values[k] << endl;
+		  k++;
+		}
+		else{
+		  out << "0" << endl;
+		}
+		if( k< locs.size()) {cout << "Error on writing matrix" << endl;}
 	}
 	out.close();
 }
@@ -208,12 +213,15 @@ void IOMat::SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int d
 void IOMat::convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int tot_sample, uint64_t batch_size, streamoff batch_offset, string file_name ){
   vector<Abundance*> abVec, *abVec_ptr;
   abVec_ptr = &abVec;
-  uint16_t cnt;
+  uint16_t cnt, total_cnt;
   uint64_t num_kmers;
   vector<double> values;
   vector<int> locs, ids;
   double value, totalValue;
   Abundance* abundance;
+
+  totalValue = 0.0;
+  total_cnt = 0;
 
   for(uint64_t i=0; i<batch_size; i++){
     ids.push_back(batch_offset+i);
@@ -222,6 +230,7 @@ void IOMat::convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int to
       if (cnt > 0){
         num_kmers = v_kmers[j];
         locs.push_back(j);
+		total_cnt += cnt;
         value = double(cnt) * 1000000 / num_kmers ;
         totalValue += pow(value, 2);
         values.push_back(value);
@@ -232,9 +241,12 @@ void IOMat::convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int to
     }
     abundance = new Abundance();
     AB::SetAbundance(abundance, ids, values, locs);
-    abVec.push_back(abundance);
+	if(total_cnt > 0.25*tot_sample){
+	  abVec.push_back(abundance);
+	}
 
     totalValue = 0.0;
+	total_cnt = 0;
     values.clear();
     ids.clear();
     locs.clear();

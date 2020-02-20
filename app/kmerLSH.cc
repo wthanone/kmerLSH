@@ -245,9 +245,9 @@ void kmerCluster(HyperParams& params){
   tot_sample = samples.size();
 
 
-  if (params.kmc && params.bin){
+  if (params.kmc || params.bin){
 	pool tp(params.threads_to_use);
-    buildKHtable( &v_kmers,  tp,  params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
+    buildKHtable( &v_kmers, &kmap_size,  tp,  params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
   	tp.wait();
 	tp.clear();
   }
@@ -278,6 +278,7 @@ void kmerCluster(HyperParams& params){
 
   	if (params.verbose) {
   	  cout << "\n...Loading and testing in batches..." << endl;
+	  cout << v_kmers.size() << endl;
   	}
     if(remove(params.mat_file_name.c_str()) != 0){
       perror("Matrix file deletion failed");

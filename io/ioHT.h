@@ -50,4 +50,4 @@ void WriteHT(ckhmap_t *kmap_ptr, FILE *outfile);
 //load kmer count info in batches
 void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t **ary_count, uint64_t batch_size, streamoff batch_offset);
 
-void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);
+void buildKHtable(vector<size_t>* v_kmers,size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);

@@ -81,9 +81,9 @@ void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t 
 	//exit(1);
 }
 
-void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
+void buildKHtable(vector<size_t>* v_kmers, size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
 	int tot_sample = samples.size();
-	size_t kmap_size, kmer_coverage;
+	size_t kmer_coverage;
 	ckhmap_t kmap, *kmap_ptr;
 	kmap_ptr = &kmap;
 	auto start_time_total = chrono::high_resolution_clock::now();
@@ -136,7 +136,7 @@ void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, siz
       exit(1);
     }
 
-    kmap_size = kmap.size();
+    (*kmap_size) = kmap.size();
 
     Kmer km;
     size_t idx_k = 0;
@@ -167,7 +167,7 @@ void buildKHtable(vector<size_t>* v_kmers, pool &tp, bool kmc, bool verbose, siz
       cout << "\n...Counting kmers and writing to binary..." << endl;
     }
 
-    fprintf(log_file, "%llu", kmap_size);
+    fprintf(log_file, "%llu", (*kmap_size));
 
     for(vector<string>::iterator it=kmc_names.begin(); it!=kmc_names.end(); ++it) {
       string tmp = *it;
