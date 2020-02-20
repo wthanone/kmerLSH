@@ -46,7 +46,7 @@ double IOMat::convert(char const* source, char ** endPtr ) {
 }
 
 void IOMat::ReadCluster(vector<Abundance*>* AbundanceMat, string file_name){
-  ifstream infile(file_name+"ids.txt");
+  ifstream infile(file_name);
   vector<int> new_ids;
   int id;
   int loc = 0;
@@ -88,7 +88,7 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
   string line;
   ifstream infile(file_name);
   if (!infile.is_open()) {
-    cout << "Error! file not open!" << endl;
+    cout << "Error! file ( " << file_name << " ) not open!" << endl;
     exit(-1);
   }
 
@@ -239,6 +239,7 @@ void IOMat::convertHTMat(uint16_t **ary_count, vector<uint64_t> &v_kmers, int to
     ids.clear();
     locs.clear();
   }
+  cout << "print : " << abVec.size() << endl;
   SaveMatrix(abVec_ptr, file_name, tot_sample, false);
   SaveResult(abVec_ptr, file_name+".clust", false);
 }

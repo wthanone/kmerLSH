@@ -61,6 +61,7 @@ void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t 
 	streamoff tot_offset;
 	//uint32_t kcount;
 	//uint16_t kcount;
+	cout << "start "<< endl;
 	for(int i=0; i<num_sample; i++) {
 		sample_offset = i*num_kmer*sizeof(uint16_t);
 		tot_offset = sample_offset + batch_offset*sizeof(uint16_t);

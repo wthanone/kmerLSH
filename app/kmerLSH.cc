@@ -242,6 +242,8 @@ void kmerCluster(HyperParams& params){
   size_t kmap_size, kmer_coverage;
 
   GetInput(params.kmc_file_name, samples, kmc_names);
+  tot_sample = samples.size();
+
 
   if (params.kmc && params.bin){
 	pool tp(params.threads_to_use);
@@ -278,10 +280,16 @@ void kmerCluster(HyperParams& params){
   	  cout << "\n...Loading and testing in batches..." << endl;
   	}
     if(remove(params.mat_file_name.c_str()) != 0){
-      perror("File deletion failed");
+      perror("Matrix file deletion failed");
     }
     else{
-      cout << "files are removed" << endl;
+      cout << "Matrix files are removed" << endl;
+    }
+	if(remove((params.mat_file_name+".clust").c_str()) != 0){
+      perror("Cluster file deletion failed");
+    }
+    else{
+      cout << "Cluester files are removed" << endl;
     }
   	//load and test kmer count info in batches
   	uint64_t kcnt_rem = kmap_size;

@@ -143,6 +143,7 @@ void Cluster(string mat_file_name, string result_file_name, double min_similarit
     threshold -= sim_step;
 	if (verbose){
       cout << "Iteration:\t" << iter << ", cos sim threshold:\t" << threshold <<" dimension : " <<dim<< endl;
+	  cout << "Size of profilings : " << unknown_abundance.size() << endl;
 	}
     // Generate LSH.
     hashTable hash_table = LSH::generateHashTable(hash_func_num, dim);
