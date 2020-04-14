@@ -114,12 +114,12 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
 
     while(lineStart != lineEnd){
       // https://stackoverflow.com/questions/17465061/how-to-parse-space-separated-doubles-in-c-quickly
-      ++sample_cnt;
-      if (valueAb > 0){
+      if (valueAb != 0){
         nonzero_ab.push_back(valueAb);
         if(normalization){totalvalueAb += pow(valueAb, 2);}
         nonzero_loc.push_back(sample_cnt);
       }
+	  ++sample_cnt;
 	  lineStart = lineEnd;
       valueAb = strtod(lineStart, &lineEnd);
     }
@@ -133,6 +133,7 @@ void IOMat::ReadMatrix(vector<Abundance*>* AbundanceMat, string* head, int* dim,
 
     Abundance* abundance = new Abundance();
     AB::SetAbundance(abundance, ids, nonzero_ab, nonzero_loc);
+	//cout << *abundance << endl;
     (*AbundanceMat).push_back(abundance);
     ++line_cnt;
     *dim = sample_cnt;
@@ -205,7 +206,7 @@ void IOMat::SaveMatrix(const vector<Abundance*>* abs_all, string out_file, int d
 		else{
 		  out << "0" << endl;
 		}
-		if( k< locs.size()) {cout << "Error on writing matrix" << endl;}
+		if( k< locs.size()) {cout << "Error on writing matrix " << k << "  " << locs.size() << endl;}
 	}
 	out.close();
 }

@@ -264,6 +264,23 @@ void kmerCluster(HyperParams& params){
         ss >> kmer_coverage;
         v_kmers.push_back(kmer_coverage);
       }
+	  //read kmers in kvec to restore the original kmer order in kmap
+      ifstream kmer_file("kmer_set.hex");
+	  //kvec.resize(kmap_size);
+	  uint8_t bytes[(Kmer::MAX_K)/4];
+	  size_t idx_k = 0;
+	  char *kmer_str = (char*)malloc(params.k*sizeof(char));
+	  char *tw_str = (char*)malloc(params.k*sizeof(char));
+	  for (size_t i = 0; i < kmap_size; i++) {
+	    kmer_file.read(reinterpret_cast<char*> (&bytes[0]), sizeof(bytes[0])*(Kmer::MAX_K)/4);
+	    Kmer km(bytes);
+		Kmer tw = km.twin();
+		km.toString(kmer_str);
+		tw.toString(tw_str);
+		cout << kmer_str <<"\t" <<tw_str  << endl;
+	    //kvec[idx_k] = km;
+	    //idx_k ++;
+	   }
     }
     ifstream inStream("kmer_count.bin", ios::binary);
 
@@ -341,4 +358,5 @@ int main(int argc, char **argv) {
     	PrintHyperParams(params);
     	kmerCluster(params);
 	}
+
 }
