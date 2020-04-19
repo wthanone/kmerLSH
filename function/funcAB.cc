@@ -59,10 +59,15 @@ void AB::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundanc
   int ab1_count = ab1_ids.size(), ab2_count = ab2_ids.size();
   int all_count = ab1_count + ab2_count ;
   ab1_ids.insert(ab1_ids.end(),  ab2_ids.begin(), ab2_ids.end());
-
+  /*
+  cout << "AB1" << endl;
+  cout << ab1 << endl;
+  cout << "AB2" << endl;
+  cout << ab2 << endl;
+  */
   while(i < ab_loc1.size() && j < ab_loc2.size()){
     if (ab_loc1[i] == ab_loc2[j]){
-      new_ab_value.push_back((ab_value1[i]*ab1_count+ab_value2[i]*ab2_count)/all_count);
+      new_ab_value.push_back(ab_value1[i]*ab1_count/all_count+ab_value2[i]*ab2_count/all_count);
       new_ab_loc.push_back(ab_loc1[i]);
       ++j;
       ++i;
@@ -94,6 +99,8 @@ void AB::SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundanc
   }
 
   SetAbundance(abundance, ab1_ids, new_ab_value, new_ab_loc);
+  //cout << "merged " << endl;
+  //cout << (*abundance) << endl;
 }
 
 void AB::SetMean(Abundance* abundance,const vector<Abundance*>& local_ab){
