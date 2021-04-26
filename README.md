@@ -3,14 +3,14 @@
 
 1. Install
 
-Make
+`<addr>` Make
 
 Required packages : KMC3, OpenMP
 
 
 2. Usage
 
-kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
+`<addr>`./kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
 
 -a, --input1=STRING             Input filename for metagenome group A
 -b, --input2=STRING             Input filename for metagenome group B
@@ -28,6 +28,5 @@ kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
 -F, --clust_file_name=STRING           intermediate clustering result file name <default 'clustering_result.txt'>
 -M, --mode=STRING                Optional K : run kmc, B : make bin file, C : clustering, E : extract differential reads 
     --verbose                   Print messages during run
-
     --only                   Run only the setting mode 
 
