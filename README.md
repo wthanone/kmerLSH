@@ -10,13 +10,16 @@ Required packages : KMC3, OpenMP
 
 2. Usage
 
-`<addr>`./kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
+>./kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
+>-a, --input1=STRING             Input filename for metagenome group A
+>-b, --input2=STRING             Input filename for metagenome group B
 
--a, --input1=STRING             Input filename for metagenome group A
--b, --input2=STRING             Input filename for metagenome group B
 -o, --output1=STRING            Prefix for output of metagenome A
+
 -p, --output2=STRING            Prefix for output of metagenome B
+
 -I, --cluster_iteration=INT           number of iteration for LSH <default 100>
+
 -N, --min_similarity=FLOAT           minimum threshold of similarity <default 0.80>
 -K, --kmer_size=INT             Size of k-mers, at most 31
 -T, --threads_to_use=INT        Number of threads for running KMC etc. <default 8>
