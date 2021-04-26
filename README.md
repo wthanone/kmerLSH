@@ -10,9 +10,9 @@ Required packages : KMC3, OpenMP
 
 2. Usage
 
->./kmerLSH -a file1 -b file2 -o outfile1 -p outfile2
->-a, --input1=STRING             Input filename for metagenome group A
->-b, --input2=STRING             Input filename for metagenome group B
+>./kmerLSH -a file1 -b file2 -o outfile1 -p outfile2\
+>-a, --input1=STRING             Input filename for metagenome group A\
+>-b, --input2=STRING             Input filename for metagenome group B\
 
 -o, --output1=STRING            Prefix for output of metagenome A
 
