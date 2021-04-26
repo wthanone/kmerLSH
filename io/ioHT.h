@@ -31,11 +31,11 @@
 #include "../kmer/kmc_api/kmc_file.h"
 #include "../kmer/kmc_reader.h"
 
-#include "../utils/threadpool.hpp"
-#include <boost/bind.hpp>
+//#include "../utils/threadpool.hpp"
+//#include <boost/bind.hpp>
 //#include <boost/thread.hpp>
 using namespace std;
-using namespace boost::threadpool;
+//using namespace boost::threadpool;
 using namespace std::chrono;
 
 void GetInput(string input, vector<string> &samples, vector<string> &kmc_names);
@@ -50,4 +50,5 @@ void WriteHT(ckhmap_t *kmap_ptr, FILE *outfile);
 //load kmer count info in batches
 void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t **ary_count, uint64_t batch_size, streamoff batch_offset);
 
-void buildKHtable(vector<size_t>* v_kmers,size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);
+void buildKHtable(vector<float_t>* v_kmers,size_t* kmap_size,  bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);
+//void buildKHtable(vector<float_t>* v_kmers,size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names);

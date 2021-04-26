@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "vector": "cpp",
+        "chrono": "cpp",
+        "random": "cpp",
+        "iosfwd": "cpp",
+        "istream": "cpp"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}

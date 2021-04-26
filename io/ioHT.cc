@@ -61,7 +61,6 @@ void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t 
 	streamoff tot_offset;
 	//uint32_t kcount;
 	//uint16_t kcount;
-	cout << "start "<< endl;
 	for(int i=0; i<num_sample; i++) {
 		sample_offset = i*num_kmer*sizeof(uint16_t);
 		tot_offset = sample_offset + batch_offset*sizeof(uint16_t);
@@ -81,9 +80,10 @@ void ReadHT(std::ifstream &infile, int num_sample, uint64_t num_kmer,  uint16_t 
 	//exit(1);
 }
 
-void buildKHtable(vector<size_t>* v_kmers, size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
+void buildKHtable(vector<float_t>* v_kmers, size_t* kmap_size,  bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
+//void buildKHtable(vector<float_t>* v_kmers, size_t* kmap_size, pool &tp, bool kmc, bool verbose, size_t ksize, int count_min, unsigned int num_threads, int max_memory, vector<string> samples, vector<string> kmc_names){
 	int tot_sample = samples.size();
-	size_t kmer_coverage;
+	float_t kmer_coverage;
 	ckhmap_t kmap, *kmap_ptr;
 	kmap_ptr = &kmap;
 	auto start_time_total = chrono::high_resolution_clock::now();
@@ -114,9 +114,10 @@ void buildKHtable(vector<size_t>* v_kmers, size_t* kmap_size, pool &tp, bool kmc
   }
 
   for (int i=0; i<tot_sample; i++) {
-	cout << kmc_names[i] << " : start reading" << endl;
-	KmcRead(kmc_names[i], kmap_ptr, verbose, tp, num_threads);
-	cout << "finishing reading kmc" << endl;
+	  cout << kmc_names[i] << " : start reading" << endl;
+	  KmcRead(kmc_names[i], kmap_ptr, verbose, num_threads, ksize);
+    //KmcRead(kmc_names[i], kmap_ptr, verbose, tp, num_threads);
+	  cout << "finishing reading kmc" << endl;
     if (verbose) {
       cout << kmap.size() << endl;
       cout << "load factor: " << kmap.load_factor() << endl;
@@ -126,71 +127,73 @@ void buildKHtable(vector<size_t>* v_kmers, size_t* kmap_size, pool &tp, bool kmc
   //record the kmer in vector based on the order of kmer in the hash table
   //for random access of kmers in BatchTest
 
-    auto t2 = chrono::high_resolution_clock::now();
-    auto duration12 = duration_cast<std::chrono::minutes>(t2 - t1).count();
-    cout << "Running KmcRead takes " << duration12 << " minutes\n";
+  auto t2 = chrono::high_resolution_clock::now();
+  auto duration12 = duration_cast<std::chrono::minutes>(t2 - t1).count();
+  cout << "Running KmcRead takes " << duration12 << " minutes\n";
 
-    FILE *kmer_file;
-    if ((kmer_file = fopen("kmer_set.hex", "w")) == NULL) {
-      cerr << "Unable to write kmer_set.hex file\n";
-      exit(1);
-    }
+  FILE *kmer_file;
+  if ((kmer_file = fopen("kmer_set.hex", "w")) == NULL) {
+    cerr << "Unable to write kmer_set.hex file\n";
+    exit(1);
+  }
 
-    (*kmap_size) = kmap.size();
+  (*kmap_size) = kmap.size();
 
-    Kmer km;
-    size_t idx_k = 0;
-    for(auto it=kmap.cbegin(); !it.is_end();++it) {
-      km = it->first;
-      km.writeBytes(kmer_file);
-      idx_k ++;
-    }
-    fclose(kmer_file);
+  Kmer km;
+  size_t idx_k = 0;
+  for(auto it=kmap.cbegin(); !it.is_end();++it) {
+    km = it->first;
+    km.writeBytes(kmer_file);
+    idx_k ++;
+  }
+  fclose(kmer_file);
 
-    auto t3 = chrono::high_resolution_clock::now();
-    auto duration23 = duration_cast<std::chrono::minutes>(t3 - t2).count();
-    cout << "Creating vector and writing kmer_set.hex takes " << duration23 << " minutes\n";
+  auto t3 = chrono::high_resolution_clock::now();
+  auto duration23 = duration_cast<std::chrono::minutes>(t3 - t2).count();
+  cout << "Creating vector and writing kmer_set.hex takes " << duration23 << " minutes\n";
 
-    //write out kmer count info
-    FILE *bin_count_file;
-    FILE *log_file; //record total number of kmers in each sample
-    if ((bin_count_file = fopen("kmer_count.bin", "wb")) == NULL) {
-      cerr << "Unable to write kmer_count.bin file\n";
-      exit(1);
-    }
-    if ((log_file = fopen("kmer_count.log", "w")) == NULL) {
-      cerr << "Unable to write kmer_count.log file\n";
-      exit(1);
-    }
+  //write out kmer count info
+  FILE *bin_count_file;
+  FILE *log_file; //record total number of kmers in each sample
+  if ((bin_count_file = fopen("kmer_count.bin", "wb")) == NULL) {
+    cerr << "Unable to write kmer_count.bin file\n";
+    exit(1);
+  }
+  if ((log_file = fopen("kmer_count.log", "w")) == NULL) {
+    cerr << "Unable to write kmer_count.log file\n";
+    exit(1);
+  }
+
+  if (verbose) {
+    cout << "\n...Counting kmers and writing to binary..." << endl;
+  }
+
+  fprintf(log_file, "%llu", (*kmap_size));
+
+  for(vector<string>::iterator it=kmc_names.begin(); it!=kmc_names.end(); ++it) {
+    string tmp = *it;
 
     if (verbose) {
-      cout << "\n...Counting kmers and writing to binary..." << endl;
+			cout << tmp << endl;
     }
 
-    fprintf(log_file, "%llu", (*kmap_size));
+    InitializeHT(kmap_ptr);
 
-    for(vector<string>::iterator it=kmc_names.begin(); it!=kmc_names.end(); ++it) {
-      string tmp = *it;
+    kmer_coverage = KmcCount(tmp, kmap_ptr, verbose, num_threads, ksize);
+    //kmer_coverage = KmcCount(tmp, kmap_ptr, verbose, tp, num_threads);
+    v_kmers->push_back(kmer_coverage/(*kmap_size));
+    fprintf(log_file, "\t%f", kmer_coverage);
 
-      if (verbose) {
-		cout << tmp << endl;
-      }
+    WriteHT(kmap_ptr, bin_count_file);
+  }
+  fclose(bin_count_file);
+  fclose(log_file);
 
-      InitializeHT(kmap_ptr);
-
-      kmer_coverage = KmcCount(tmp, kmap_ptr, verbose, tp, num_threads);
-      v_kmers->push_back(kmer_coverage);
-      fprintf(log_file, "\t%llu", kmer_coverage);
-
-      WriteHT(kmap_ptr, bin_count_file);
-    }
-    fclose(bin_count_file);
-    fclose(log_file);
-
-    auto t4 = chrono::high_resolution_clock::now();
-    auto duration34 = duration_cast<std::chrono::minutes>(t4 - t3).count();
+  auto t4 = chrono::high_resolution_clock::now();
+  auto duration34 = duration_cast<std::chrono::minutes>(t4 - t3).count();
+  if(verbose){
     cout << "Running KmcCount and writing to binary takes " << duration34 << " minutes\n";
-
-    //free the memory of kmap
-    kmap.clear();
+  }
+  //free the memory of kmap
+  kmap.clear();
 }

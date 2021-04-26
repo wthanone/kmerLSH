@@ -16,11 +16,15 @@
 #include <stdlib.h>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
 #include "../common/abundance.h"
+
+#include "../utils/alglib-3.15.0/src/statistics.h"
+#include "../utils/alglib-3.15.0/src/ap.h"
 
 using namespace std;
 using namespace Core;
@@ -28,15 +32,14 @@ using namespace Core;
 namespace Core {
 class AB {
  public:
-  static void randAbundance(Abundance* abundance, const Abundance& ab, double scale);
-  static void SetAbundance(Abundance* abundance,const vector<int>& ids, const vector<double>& values, const vector<int>& locs) ;
+  static void randAbundance(Abundance* abundance, const Abundance& ab, float scale);
+  static void SetAbundance(Abundance* abundance,const vector<uint64_t>& ids, const vector<float>& values) ;
   static void SetNullAbundance(Abundance* abundance);
-  static void UpdateAbundanceIDs(Abundance* abundance, const vector<int>& ids);
   static void SetConsensus(Abundance* abundance, const Abundance& ab1, const Abundance& ab2);
-
+  static void WRS(unordered_set<uint64_t> *group1, unordered_set<uint64_t> *group2, Abundance* abundance, int num_sample1, int num_sample2, float pvalue_thresh, int size_thresh);
   static void SetMean(Abundance* abundance,const vector<Abundance*>& local_ab);
   static bool isSameAb(Abundance* ab1, Abundance* ab2);
-  static double convert(char const* source, char ** endPtr);
+  static float convert(char const* source, char ** endPtr);
 };
 
 }  // namespace Utility

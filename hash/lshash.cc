@@ -17,7 +17,7 @@ namespace Hash {
   }
 
   //TODO: Test this method.
-  hashFunction LSH::generateUniformHashFunc(int size, double min, double max) {
+  hashFunction LSH::generateUniformHashFunc(int size, float min, float max) {
     hashFunction function(size, 0);
 
     random_device rd;
@@ -41,32 +41,32 @@ namespace Hash {
     return table;
   }
 
-  int LSH::random_projection(const vector<double> geneAbs, const vector<int> geneLoc, const hashFunction& function) {
-    double sum = 0;
+  int LSH::random_projection(const vector<float> geneAbs, const hashFunction& function) {
+    float sum = 0;
     //for (auto& ab : geneAbs) {
 	for (int i = 0; i < geneAbs.size(); ++i){
-      sum += function[geneLoc[i]] * geneAbs[i];
+      sum += function[i] * geneAbs[i];
     }
     return sum >=0 ? 1 : 0;
   }
 
-  int LSH::random_projection(const vector<double> geneAbs, const vector<int> geneLoc, const hashTable& table) {
+  int LSH::random_projection(const vector<float> geneAbs, const hashTable& table) {
     int key = 0;
     for (auto& function : table) {
-      key = key * 2 + random_projection(geneAbs, geneLoc, function);
+      key = key * 2 + random_projection(geneAbs, function);
     }
     return key;
   }
 
   //TODO: Test p_stable functions.
-  string LSH::p_stable(const vector<double> geneAbs, const hashFunction& function, double b, double r) {
-    double sum = 0;
+  string LSH::p_stable(const vector<float> geneAbs, const hashFunction& function, float b, float r) {
+    float sum = 0;
     for (int i = 0; i < geneAbs.size(); ++i) {
       sum += geneAbs[i] * function[i];
     }
     return to_string(int((sum + b) / r));
   }
-  string LSH::p_stable(const vector<double> geneAbs, const hashTable& table, double b, double r) {
+  string LSH::p_stable(const vector<float> geneAbs, const hashTable& table, float b, float r) {
     string key;
     for (const auto& function : table) {
       key += p_stable(geneAbs, function, b, r);

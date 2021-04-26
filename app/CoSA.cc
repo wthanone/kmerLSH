@@ -29,8 +29,8 @@
 #include "../hash/HashTables.hpp"
 
 
-#include "../utils/alglib-3.8.2/src/statistics.h"
-#include "../utils/alglib-3.8.2/src/ap.h"
+#include "../utils/alglib-3.15.0/src/statistics.h"
+#include "../utils/alglib-3.15.0/src/ap.h"
 
 #include "../kmer/kmc_api/kmc_file.h"
 #include "../kmer/kmc_reader.hpp"

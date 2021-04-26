@@ -37,6 +37,7 @@
 
 #include "../io/ioMatrix.h"
 #include "../io/ioHT.h"
+#include "../io/ioFastQ.h"
 
 #include "../utils/fastq.h"
 
@@ -48,14 +49,16 @@
 #include "../kmer/kmc_reader.h"
 #include "../kmer/Kmer.h"
 
-#include "../utils/threadpool.hpp"
-#include <boost/bind.hpp>
+//#include "../utils/threadpool.hpp"
+//#include <boost/bind.hpp>
 
+#include "../utils/alglib-3.15.0/src/statistics.h"
+#include "../utils/alglib-3.15.0/src/ap.h"
 //#include <boost/thread.hpp>
 
 using namespace std;
 //using namespace boost;
-using namespace boost::threadpool;
+//using namespace boost::threadpool;
 using namespace std::chrono;
 using namespace Core;
 using namespace Utility;
@@ -63,46 +66,60 @@ using namespace Utility;
 struct HyperParams
 {
   size_t k;
-  double min_similarity;
-  double scale;
+  float min_similarity;
+  float scale;
   int cluster_iteration;
   int hash_func_num;
   int max_memory;
   int count_min;
+  int size_thresh;
+  float pval_thresh;
+  float kmer_vote;
   bool verbose;
-  bool kmc, bin, mat, clustering;
+  bool kmc, bin, clustering, extracting;
   unsigned int threads_to_use;
-  string kmc_file_name;
-  string result_file_name;
-  string mat_file_name;
+  string tmp_dir;
+  string input1, input2;
+  string output1, output2;
+  string clust_file_name;
 };
 
 void PrintHyperParams(const HyperParams& params) {
   cout << "************ kmers Cluster Params Setting ****************" << endl;
   cout << "cluster iteration: " << params.cluster_iteration << endl;
-  cout << "cluster result prefix: " << params.result_file_name << endl;
-  cout << "cluster result file path: " << params.mat_file_name << endl;
-  cout << "hash function num: " << params.hash_func_num << endl;
-  cout << "input file name: " << params.kmc_file_name << endl;
+  cout << "group1 result prefix: " << params.output1 << endl;
+  cout << "group2 result prefix: " << params.output2 << endl;
+  cout << "cluster result file: " << params.clust_file_name << endl;
+  cout << "group1 input file: " << params.input1 << endl;
+  cout << "group2 input file: " << params.input2 << endl;
   cout << "min similarity: " << params.min_similarity << endl;
   cout << "threds to use: " << params.threads_to_use << endl;
+  cout << "p-value threshold: " << params.pval_thresh << endl;
+  cout << "cluster size threshold: " << params.size_thresh << endl;
+  cout << "percentage threshold of differential k-mers in distinctive reads" << params.kmer_vote << endl;
   cout << "********************************************************" << endl;
 }
 
 void kLSH_PrintUsage() {
   cerr << "kmers LSH "<< KLSH_VERSION << endl << endl;
   cerr << "Clustering of k-mers [from KMC library] " << endl << endl;
-  cerr << "Usage: kLSH -o -i -m [options]";
+  cerr << "Usage: kmerLSH -i1 -i2 -o1 -o2 [options]";
   cerr << endl << endl <<
-	"-k, --kmer-size=INT             Size of k-mers, at most " << (int) (Kmer::MAX_K-1)<< endl <<
-	"-i, --input=STRING             Input filename for metagenome group A" << endl <<
-	"-o, --output=STRING            Prefix for output of metagenome A" << endl <<
-	"-m, --matrix=STRING            Prefix for output of metagenome A" << endl <<
-	"-v, --kmer-vote=FLOAT           Percentage threshold of differential k-mers in distinctive reads <default 0.5>" << endl <<
-	"-t, --number-threads=INT        Number of threads for running KMC etc. <default 8>" << endl <<
-	"-m, --max-memory=INT            Max memory for running KMC <default 12>" << endl <<
-	"-c, --count-min=INT            Min threshold of k-mer count for running KMC <default 2>" << endl <<
-	"-M, --mode=STRING                Optional K : run kmc, B : make bin file, M : make matrix file, C : clustering " << endl <<
+	"-a, --input1=STRING             Input filename for metagenome group A" << endl <<
+  "-b, --input2=STRING             Input filename for metagenome group B" << endl <<
+	"-o, --output1=STRING            Prefix for output of metagenome A" << endl <<
+  "-p, --output2=STRING            Prefix for output of metagenome B" << endl <<
+  "-I, --cluster_iteration=INT           number of iteration for LSH <default 100>" << endl <<
+  "-N, --min_similarity=FLOAT           minimum threshold of similarity <default 0.80>" << endl <<
+  "-K, --kmer_size=INT             Size of k-mers, at most " << (int) (Kmer::MAX_K-1)<< endl <<
+	"-T, --threads_to_use=INT        Number of threads for running KMC etc. <default 8>" << endl <<
+	"-X, --max-memory=INT            Max memory for running KMC <default 12>" << endl <<
+	"-C, --count-min=INT            Min threshold of k-mer count for running KMC <default 2>" << endl <<
+  "-S, --size_thresh=INT       Threshold of the size of clustering for U-Test <default 500000>" << endl <<
+  "-P, --pval_thresh=FLOAT       For U-test <default 0.01>" << endl <<
+  "-V, --kmer_vote=FLOAT           Percentage threshold of differential k-mers in distinctive reads <default 0.5>" << endl <<
+  "-F, --clust_file_name=STRING           intermediate clustering result file name <default 'clustering_result.txt'>" << endl <<
+	"-M, --mode=STRING                Optional K : run kmc, B : make bin file, C : clustering, E : extract differential reads " << endl <<
 	"    --verbose                   Print messages during run" << endl << endl <<
 	"    --only                   Run only the setting mode " << endl << endl
 	;
@@ -110,38 +127,47 @@ void kLSH_PrintUsage() {
 
 void SetHyperParams(HyperParams* params) {
   (*params).cluster_iteration = 100;  //TODO: Tune this param.
-  (*params).hash_func_num = 10;
-  (*params).min_similarity = 0.65;  //TODO: Tune this param.
+  (*params).min_similarity = 0.80;  //TODO: Tune this param.
   (*params).scale = 1;
   (*params).threads_to_use = 12;
   (*params).kmc = true;
   (*params).bin = true;
-  (*params).mat = true;
+  (*params).extracting = true;
   (*params).clustering = true;
   (*params).max_memory = 12;
   (*params).count_min = 2;
   (*params).k = 23;
+  (*params).pval_thresh = 0.01;
+  (*params).size_thresh = 500000;
+  (*params).kmer_vote = 0.5;
+  (*params).tmp_dir = "tmp/";
+  (*params).clust_file_name = "clustering_result.txt";
 }
 
 void ParsingCommands(int argc, char*argv[], HyperParams* params) {
   int verbose_flag = 0;
   int only_flag = 0;
   string mode = "";
-  const char* opt_string = "o:i:m:H:I:S:X:C:T:K:M:";
+  const char* opt_string = "o:p:a:b:H:I:N:X:C:T:K:S:P:V:F:M:";
   static struct option long_options[] =
   {
     {"verbose", no_argument,  &verbose_flag, 1},
     {"only", no_argument,  &only_flag, 1},
-    {"output", required_argument, 0, 'o'},
-  	{"input", required_argument, 0, 'i'},
-    {"matrix", required_argument, 0, 'm'},
-  	{"hash_func_num", optional_argument, 0, 'H'},
+    {"output1", required_argument, 0, 'o'},
+    {"output2", required_argument, 0, 'p'},
+  	{"input1", required_argument, 0, 'a'},
+    {"input2", required_argument, 0, 'b'},
     {"cluster_iteration", optional_argument, 0, 'I'},
-    {"min_similarity", optional_argument, 0, 'S'},
+    {"min_similarity", optional_argument, 0, 'N'},
   	{"max-memory", optional_argument, 0, 'X'},
   	{"count-min", optional_argument, 0, 'C'},
   	{"threads_to_use", optional_argument, 0, 'T'},
-    {"kmer-size", optional_argument, 0, 'K'},
+    {"kmer_size", optional_argument, 0, 'K'},
+    {"size_thresh", optional_argument, 0, 'S'},
+    {"pval_thresh", optional_argument, 0, 'P'},
+    {"kmer_vote", optional_argument, 0, 'V'},
+    {"tmp_dir", optional_argument, 0, 'D'},
+    {"clust_file_name", optional_argument, 0, 'F'},
     {"mode", optional_argument, 0, 'M'},
   	{0,0,0,0}
   };
@@ -157,22 +183,22 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
       }
       switch (c) {
         case 'o':
-          (*params).result_file_name = optarg;
+          (*params).output1 = optarg;
           break;
-        case 'i':
-          (*params).kmc_file_name = optarg;
-  	      break;
-        case 'm':
-          (*params).mat_file_name = optarg;
-  	      break;
-        case 'H':
-          (*params).hash_func_num = atoi(optarg);
+        case 'p':
+          (*params).output2 = optarg;
           break;
+        case 'a':
+          (*params).input1 = optarg;
+  	      break;
+        case 'b':
+          (*params).input2 = optarg;
+  	      break;
         case 'I':
           (*params).cluster_iteration = atoi(optarg);
           break;
-      	case 'S':
-          (*params).min_similarity = atoi(optarg);
+      	case 'N':
+          (*params).min_similarity = atof(optarg);
           break;
         case 'X':
           (*params).max_memory = atoi(optarg);
@@ -185,6 +211,21 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
           break;
         case 'K':
           (*params).k = atoi(optarg);
+          break;
+        case 'S':
+          (*params).size_thresh = atoi(optarg);
+          break;
+        case 'P':
+          (*params).pval_thresh = atof(optarg);
+          break;
+        case 'V':
+          (*params).kmer_vote = atof(optarg);
+          break;
+        case 'D':
+          (*params).tmp_dir = optarg;
+          break;
+        case 'F':
+          (*params).clust_file_name = optarg;
           break;
         case 'M':
           mode = optarg;
@@ -200,61 +241,235 @@ void ParsingCommands(int argc, char*argv[], HyperParams* params) {
     if (only_flag){
       if (mode == "K"){
         (*params).bin = false;
-        (*params).mat = false;
         (*params).clustering = false;
+        (*params).extracting = false;
       }
       else if (mode == "B"){
         (*params).kmc = false;
-        (*params).mat = false;
         (*params).clustering = false;
-      }
-      else if (mode == "M"){
-        (*params).bin = false;
-        (*params).kmc = false;
-        (*params).clustering = false;
+        (*params).extracting = false;
       }
       else if (mode == "C"){
         (*params).bin = false;
-        (*params).mat = false;
         (*params).kmc = false;
+        (*params).extracting = false;
+      }
+      else if (mode == "E"){
+        (*params).bin = false;
+        (*params).kmc = false;
+        (*params).clustering = false;
       }
     } else {
       if (mode == "B"){
         (*params).kmc = false;
       }
-      else if (mode == "M"){
+      else if (mode == "C"){
         (*params).bin = false;
         (*params).kmc = false;
       }
-      else if (mode == "C"){
+      else if (mode == "E"){
         (*params).bin = false;
-        (*params).mat = false;
         (*params).kmc = false;
+        (*params).clustering = false;
       }
     }
   }
 
-void kmerCluster(HyperParams& params){
-  vector<string> samples, kmc_names;
-  vector<size_t> v_kmers;
-  int tot_sample;
-  Kmer::set_k(params.k);
-  size_t kmap_size, kmer_coverage;
+void init_clustering(vector<Abundance*>* unknown_abundance_ptr, int dim, float min_similarity, int cluster_iteration, unsigned int threads_to_use, int tot_sample, size_t kmap_size, vector<float_t> v_kmers, int bucket_size_threshold, string tmp_dir, bool verbose){
+  auto start_time = chrono::high_resolution_clock::now();
+  ifstream inStream("kmer_count.bin", ios::binary);
+  vector<Abundance*> out_abundance, local_abundance, *out_abundance_ptr,*local_abundance_ptr;
+  local_abundance_ptr = & local_abundance;
+  out_abundance_ptr = & out_abundance;
+  float similarity = min_similarity;
+  const uint64_t batch_thresh = 100000000; //if changed, remember to change 2D array parameter vec_count in readHT and batchTest
+  uint64_t batch_size;
+  string read_tmp_file = "", write_tmp_file = "", read_tmp_file_clust = "", write_tmp_file_clust = "";
+  deque<int> tmp_files;
+  size_t total_size = 0;
 
-  GetInput(params.kmc_file_name, samples, kmc_names);
-  tot_sample = samples.size();
-
-
-  if (params.kmc || params.bin){
-	pool tp(params.threads_to_use);
-    buildKHtable( &v_kmers, &kmap_size,  tp,  params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
-  	tp.wait();
-	tp.clear();
+  //initialize 2D array
+  uint16_t** ary_count = new uint16_t*[tot_sample];
+  for (int i=0; i < tot_sample; i++) {
+  	ary_count[i] = new uint16_t[batch_thresh];
   }
 
-  if (params.mat){
+  if (verbose) {
+    cout << "\n...Loading and testing in batches..." << endl;
+	  cout << v_kmers.size() << endl;
+  }
+
+  //load and test kmer count info in batches
+  uint64_t kcnt_rem = kmap_size;
+  streamoff batch_offset = 0;
+  int iter = kmap_size / batch_thresh;
+  int tmp = 0;
+  cout << "iteration : " << iter << " kmap_size : " << kmap_size << endl;
+  //First, read the binary file of k-mers hash table. 
+  //Clustering the block of hash table
+  //Saving to the other binary file.
+  for(int i = 0; i< iter+1 ; i++){
+    if(i == iter){
+      //batch_offset = batch_thresh*i;
+      batch_size = kcnt_rem - batch_offset;
+    }
+    else{
+      batch_size = batch_thresh;
+      //batch_offset = batch_thresh * i;
+    }
+    cout << "i: " << i << " batch_size : " << batch_size << " batch_offset : " << batch_offset << endl;
+    ReadHT(inStream, tot_sample, kmap_size, ary_count, batch_size, batch_offset);
+    IOMat::convertHTMat(ary_count, v_kmers,  tot_sample, verbose, batch_size, batch_offset, local_abundance_ptr);
+    Cluster(local_abundance_ptr, similarity, cluster_iteration,  threads_to_use, dim, batch_thresh/1000, verbose);
+    total_size += local_abundance.size();
+    //////write result on tmp bin
+    if(i == 0){
+      write_tmp_file = tmp_dir+to_string(tmp)+".bin";
+      write_tmp_file_clust = write_tmp_file+".clust";
+      IOMat::SaveResult(local_abundance_ptr,  write_tmp_file_clust, true, 0, verbose);
+      IOMat::SaveBinary(local_abundance_ptr, write_tmp_file, true, 0, verbose);
+      tmp++;
+    }
+    else{
+      IOMat::SaveResult(local_abundance_ptr,  write_tmp_file_clust, false, 0, verbose);
+      IOMat::SaveBinary(local_abundance_ptr, write_tmp_file, false,  0, verbose);
+    }
+	  for(size_t j = 0; j< local_abundance.size(); j++){
+      delete local_abundance[j];
+    }
+    vector<Abundance*>().swap(local_abundance);
+	  batch_offset += batch_size;
+    if (verbose) {
+  	  cout << "# loaded kmers: " << batch_offset << endl;
+  	}
+  }
+  
+  for (int i = 0; i < tot_sample; ++i) {
+  	delete [] ary_count[i];
+  }
+  delete [] ary_count;
+  inStream.close();
+
+  /////read temporary directory files/////////
+  while (total_size > batch_thresh){
+    similarity -=0.001;
+    batch_offset = 0;
+    read_tmp_file = write_tmp_file;
+    read_tmp_file_clust = write_tmp_file_clust;
+    write_tmp_file = tmp_dir+to_string(tmp)+".bin";
+    write_tmp_file_clust = write_tmp_file+".clust";
+    tmp++;
+    iter = total_size / batch_thresh;
+    kcnt_rem = total_size;
+    total_size = 0;
+    for(int i = 0; i< iter+1; i++){
+      if (i == iter ){
+        //batch_offset = batch_thresh*i;
+        batch_size = kcnt_rem - batch_offset;
+      }
+      else{
+        //batch_offset = batch_thresh*i;
+        batch_size = batch_thresh;
+      }
+      cout << "i: " << i << " batch_size : " << batch_size << " batch_offset : " << batch_offset << endl;
+      IOMat::ReadCluster(local_abundance_ptr, dim, read_tmp_file, batch_offset, batch_size, verbose);
+      //IOMat::ReadCluster(local_abundance_ptr, read_tmp_file+".clust", batch_offset, batch_size, verbose);
+      Cluster(local_abundance_ptr, similarity, cluster_iteration+4,  threads_to_use, dim, batch_thresh/1000, verbose);
+      total_size += local_abundance.size();
+
+      if(i == 0){
+        IOMat::SaveResult(local_abundance_ptr,  write_tmp_file_clust, true, 0, verbose);
+        IOMat::SaveBinary(local_abundance_ptr, write_tmp_file, true, 0, verbose);
+      }
+      else{
+        IOMat::SaveResult(local_abundance_ptr,  write_tmp_file_clust, false, 0, verbose);
+        IOMat::SaveBinary(local_abundance_ptr, write_tmp_file, false, 0, verbose);
+      }
+    
+      for(size_t j = 0; j< local_abundance.size(); j++){
+        delete local_abundance[j];
+      }
+      vector<Abundance*>().swap(local_abundance);
+	    batch_offset += batch_size;
+	    if (verbose) {
+      	cout << "# loaded kmers: " << batch_offset << endl;
+      }
+    }
+    ///////////delete read temporary file ///////////////
+    if(remove(read_tmp_file.c_str()) != 0){
+      perror("The temporary file deletion failed");
+    }
+    else{
+      cout << read_tmp_file << "file are removed" << endl;
+    }
+    if(remove(read_tmp_file_clust.c_str()) != 0){
+      perror("The temporary file deletion failed");
+    }
+    else{
+      cout << read_tmp_file_clust << "file are removed" << endl;
+    }
+  }
+  
+  read_tmp_file = write_tmp_file;
+  read_tmp_file_clust = write_tmp_file_clust;
+  IOMat::ReadClusterAll(local_abundance_ptr, dim, read_tmp_file, verbose);
+  //IOMat::ReadClusterAll(local_abundance_ptr, read_tmp_file+".clust");
+
+  unknown_abundance_ptr->swap(local_abundance);
+  vector<Abundance*>().swap(local_abundance);
+
+  
+  auto end_time = chrono::high_resolution_clock::now();
+  auto elapsed_read = chrono::duration_cast<std::chrono::duration<float>>(end_time - start_time).count();
+  
+  if(verbose){
+    cout << "Finish conversion matrix" << endl;
+	  cout << "reading Matrix takes secs:\t" << elapsed_read << endl;
+  }
+  
+}
+
+void kmerCluster(HyperParams& params){
+  vector<string> samples1, samples2, kmc_names1, kmc_names2 ;
+  vector<string> samples, kmc_names;
+  vector<float_t> v_kmers;
+  int tot_sample, num_sample1, num_sample2;
+  Kmer::set_k(params.k);
+  size_t kmap_size;
+  float_t kmer_coverage;
+  int bucket_size_threshold = 1000000;
+
+  auto start_time_total = chrono::high_resolution_clock::now();
+
+  GetInput(params.input1, samples1, kmc_names1);
+  GetInput(params.input2, samples2, kmc_names2);
+
+  samples = samples1;
+	samples.insert(samples.end(), samples2.begin(), samples2.end());
+	kmc_names = kmc_names1;
+	kmc_names.insert(kmc_names.end(), kmc_names2.begin(), kmc_names2.end());
+
+	num_sample1 = samples1.size();
+	num_sample2 = samples2.size();
+	tot_sample = samples.size();
+	if (params.verbose) {
+		cout << endl << "# samples in group 1: " << num_sample1 << endl << "# samples in group 2: " << num_sample2 << endl;
+	}
+
+  if (params.kmc || params.bin){
+	   //pool tp(params.threads_to_use);
+     buildKHtable( &v_kmers, &kmap_size,   params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
+     //buildKHtable( &v_kmers, &kmap_size,  tp,  params.kmc, params.verbose, params.k, params.count_min, params.threads_to_use, params.max_memory, samples, kmc_names);
+     //tp.wait();
+     //tp.clear();
+  }
+
+
+  //if (params.mat){
+  if (params.clustering){
     //store v_kmer without buildKHtable
     if(!params.bin){
+      v_kmers.reserve(tot_sample);
       ifstream logStream("kmer_count.log");
       string line;
       getline(logStream, line);
@@ -262,90 +477,129 @@ void kmerCluster(HyperParams& params){
       ss >> kmap_size;
       for (int i = 0; i < tot_sample; i++) {
         ss >> kmer_coverage;
-        v_kmers.push_back(kmer_coverage);
+        v_kmers.push_back(kmer_coverage/kmap_size);
       }
-	  //read kmers in kvec to restore the original kmer order in kmap
-      ifstream kmer_file("kmer_set.hex");
+	  }
+
+    vector<Abundance*> unknown_abundance, *unknown_abundance_ptr;
+    unknown_abundance_ptr = & unknown_abundance;
+
+    init_clustering(unknown_abundance_ptr, tot_sample, params.min_similarity, 1, params.threads_to_use, tot_sample, kmap_size, v_kmers, bucket_size_threshold, params.tmp_dir, params.verbose);
+
+  
+    Cluster(unknown_abundance_ptr, params.min_similarity, params.cluster_iteration, params.threads_to_use,tot_sample, bucket_size_threshold, params.verbose);
+
+    
+    // Save clusters.
+    auto start_time_save_result = chrono::high_resolution_clock::now();
+    if(params.verbose){
+      cout << "Saving cluster results starts: " << endl;
+    }
+    IOMat::SaveResult(unknown_abundance_ptr,  params.clust_file_name+".clust", true, 5, params.verbose);
+    IOMat::SaveBinary(unknown_abundance_ptr, params.clust_file_name, true, 5, params.verbose);
+    auto end_time = chrono::high_resolution_clock::now();
+    auto elapsed_read = chrono::duration_cast<std::chrono::duration<float>>(end_time - start_time_save_result).count();
+    if(params.verbose){
+      cout << "Save cluster results takes secs: " << elapsed_read << endl;
+    }
+    // Release allocated memory for spectra w/ charge; save pointers to spectra
+    // w/o charge to variable 'spectra_of_no_charge'.
+    auto start_time = chrono::high_resolution_clock::now();
+    if(params.verbose){
+      cout << "Releasing memory starts." << endl;
+    }
+    for(size_t i = 0; i< unknown_abundance.size(); i++){
+        delete unknown_abundance[i];
+    }
+
+    end_time = chrono::high_resolution_clock::now();
+    elapsed_read = chrono::duration_cast<std::chrono::duration<float>>(end_time - start_time).count();
+    if(params.verbose){
+      cout << "Releasing memory takes: " << elapsed_read << endl;
+    }
+
+  }
+  if (params.extracting){
+    if(params.verbose){
+      cout << "Start to extract the differential reads from raw data" << endl;
+    }
+    auto start_time_extracting = chrono::high_resolution_clock::now();
+    vector<Abundance*> clusteredab, *clusteredab_ptr;
+    clusteredab_ptr = &clusteredab;
+
+    uset_t g_kmer1, g_kmer2, *g_kmer1_ptr, *g_kmer2_ptr;  //differential kmers for two groups in comparison
+	  g_kmer1_ptr = &g_kmer1;
+	  g_kmer2_ptr = &g_kmer2;
+
+    unordered_set<uint64_t> g_kmer_id1, g_kmer_id2, *g_kmer_id1_ptr, *g_kmer_id2_ptr;
+    g_kmer_id1_ptr = &g_kmer_id1;
+    g_kmer_id2_ptr = &g_kmer_id2;
+
+    string head = "";
+    int dim = 0;
+    //read clustering result and do statistical testing(WRS)
+    IOMat::ReadClusterAll(clusteredab_ptr, tot_sample, params.clust_file_name, params.verbose);
+    //IOMat::ReadClusterAll(clusteredab_ptr, params.clust_file_name+".clust");
+    for(size_t i =0; i< clusteredab.size(); i++){
+      AB::WRS(g_kmer_id1_ptr, g_kmer_id2_ptr, clusteredab[i], num_sample1, num_sample2, params.pval_thresh, params.size_thresh);
+    }
+    //clear loaded abundance information
+    for(size_t i; i< clusteredab.size(); i++){
+      delete clusteredab[i];
+    }
+    
+    if(params.verbose){
+      cout << "# of differential kmers in group A : " << g_kmer_id1.size() << endl;
+      cout << "# of differential kmers in group B : " << g_kmer_id2.size() << endl;
+    }
+    //read kmers in kvec to restore the original kmer order in kmap
+    
+    ifstream logStream("kmer_count.log");
+    string line;
+    getline(logStream, line);
+    istringstream ss(line);
+    ss >> kmap_size;
+    logStream.close();
+
+    ifstream kmer_file("kmer_set.hex");
 	  //kvec.resize(kmap_size);
 	  uint8_t bytes[(Kmer::MAX_K)/4];
 	  size_t idx_k = 0;
-	  char *kmer_str = (char*)malloc(params.k*sizeof(char));
-	  char *tw_str = (char*)malloc(params.k*sizeof(char));
+
 	  for (size_t i = 0; i < kmap_size; i++) {
 	    kmer_file.read(reinterpret_cast<char*> (&bytes[0]), sizeof(bytes[0])*(Kmer::MAX_K)/4);
 	    Kmer km(bytes);
-		Kmer tw = km.twin();
-		km.toString(kmer_str);
-		tw.toString(tw_str);
-		cout << kmer_str <<"\t" <<tw_str  << endl;
-	    //kvec[idx_k] = km;
-	    //idx_k ++;
-	   }
+      
+      if(g_kmer_id1.find(i) != g_kmer_id1.end() ){
+        g_kmer1.insert(km);
+      }
+      else if(g_kmer_id2.find(i) != g_kmer_id2.end()){
+        g_kmer2.insert(km);
+      }
+	    idx_k ++;
     }
-    ifstream inStream("kmer_count.bin", ios::binary);
 
-  	const uint64_t batch_thresh = 10000000; //if changed, remember to change 2D array parameter vec_count in readHT and batchTest
-  	uint64_t batch_size;
+    //clear the id sets and close file
+    unordered_set<uint64_t>().swap(g_kmer_id1);
+    unordered_set<uint64_t>().swap(g_kmer_id2);
+    kmer_file.close();
 
-  	//initialize 2D array
-  	uint16_t** ary_count = new uint16_t*[tot_sample];
-  	for (int i=0; i < tot_sample; i++) {
-  		ary_count[i] = new uint16_t[batch_thresh];
-  	}
+    IOFQ::Extracting(samples1, g_kmer1_ptr, params.output1, params.threads_to_use, params.kmer_vote, params.verbose);
+    IOFQ::Extracting(samples2, g_kmer2_ptr, params.output2, params.threads_to_use, params.kmer_vote, params.verbose);
 
-  	if (params.verbose) {
-  	  cout << "\n...Loading and testing in batches..." << endl;
-	  cout << v_kmers.size() << endl;
-  	}
-    if(remove(params.mat_file_name.c_str()) != 0){
-      perror("Matrix file deletion failed");
+    // Report time for all the procedures done above.
+    auto end_time_extracting = chrono::high_resolution_clock::now();
+    auto elapsed_read = chrono::duration_cast<std::chrono::duration<float>>(end_time_extracting - start_time_extracting).count();
+    if(params.verbose){
+      cout << "extracting reads takes (secs): " << elapsed_read << endl;
     }
-    else{
-      cout << "Matrix files are removed" << endl;
-    }
-	if(remove((params.mat_file_name+".clust").c_str()) != 0){
-      perror("Cluster file deletion failed");
-    }
-    else{
-      cout << "Cluester files are removed" << endl;
-    }
-  	//load and test kmer count info in batches
-  	uint64_t kcnt_rem = kmap_size;
-  	streamoff batch_offset = 0;
-  	while(kcnt_rem >= batch_thresh) {
-  	  batch_size = batch_thresh;
-
-  	  ReadHT(inStream, tot_sample, kmap_size, ary_count, batch_size, batch_offset);
-  	  IOMat::convertHTMat(ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
-
-  	  //cout << g_kmer1.size() << "\t" << g_kmer2.size() <<endl;
-
-  	  batch_offset += batch_size;
-  	  kcnt_rem -= batch_size;
-  	  if (params.verbose) {
-  		  cout << "# loaded kmers: " << batch_offset << endl;
-  	  }
-
-  	}
-  	if(kcnt_rem > 0 && kcnt_rem < batch_thresh) {
-  	  batch_size = kcnt_rem;
-  	  ReadHT(inStream, tot_sample, kmap_size, ary_count, batch_size, batch_offset);
-  	  IOMat::convertHTMat(ary_count, v_kmers,  tot_sample, batch_size, batch_offset, params.mat_file_name);
-  	}
-
-  	for (int i = 0; i < tot_sample; ++i) {
-  		delete [] ary_count[i];
-  	}
-  	delete [] ary_count;
-  	inStream.close();
-
   }
 
-  if (params.clustering){
-    //read matrix file
-    Cluster(params.mat_file_name, params.result_file_name, params.min_similarity, params.cluster_iteration, params.hash_func_num, params.threads_to_use, false, params.verbose);
-  }
-
+  // Report time for all the procedures done above.
+  auto end_time = chrono::high_resolution_clock::now();
+  auto elapsed_read = chrono::duration_cast<std::chrono::duration<float>>(end_time - start_time_total).count();
+  cout << "msCRUSH algorithm in total takes (secs): " << elapsed_read << endl;
+  
 }
 
 int main(int argc, char **argv) {

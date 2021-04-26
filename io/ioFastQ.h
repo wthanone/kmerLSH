@@ -22,30 +22,32 @@
 
 #include <getopt.h>
 
-#include "Common.hpp"
+#include "../common/Common.h"
 //#include "utils.hpp"
-#include "fastq.hpp"
-#include "Kmer.hpp"
-#include "HashTables.hpp"
-#include "abudnace.h"
+#include "../utils/fastq.h"
+#include "../kmer/kmc_api/kmc_file.h"
+#include "../kmer/kmc_reader.h"
+#include "../kmer/Kmer.h"
 
-#include "alglib-3.8.2/src/statistics.h"
-#include "alglib-3.8.2/src/ap.h"
-
-#include "kmc_api/kmc_file.h"
-#include "kmc_reader.hpp"
-
-#include "threadpool.hpp"
-#include <boost/bind.hpp>
+//#include "../utils/threadpool.hpp"
+//#include <boost/bind.hpp>
 //#include <boost/thread.hpp>
 using namespace std;
-using namespace boost::threadpool;
+//using namespace boost::threadpool;
 using namespace std::chrono;
 
-namespce Utility{
+namespace Utility{
+class IOFQ{
+    public:
+
 //identification of distinctive reads using multi-threads
-void CheckRead(uset_t *g_kmer_ptr, vector<ReadEntry> &read_vec, vector<int> &record_vec, unsigned int num_threads, int tid, float kmer_vote, uset_t *large_kmer_count_ptr)
+    static void CheckRead(uset_t *g_kmer_ptr, vector<ReadEntry> &read_vec, vector<int> &record_vec, unsigned int num_threads, int tid, float kmer_vote);
 
 //extract distinctive reads for each sample
-void ReadExtract(uset_t *g_kmer_ptr, vector<string> &files, string output, float kmer_vote, bool verbose, pool &tp, unsigned int num_threads, uset_t *large_kmer_count_ptr)
+    static void ReadExtract(uset_t *g_kmer_ptr, vector<string> &files, string output, float kmer_vote, bool verbose, unsigned int num_threads);
+    //static void ReadExtract(uset_t *g_kmer_ptr, vector<string> &files, string output, float kmer_vote, bool verbose, pool &tp, unsigned int num_threads);
+
+    static void Extracting(vector<string> samples, uset_t *g_kmer_ptr, string out, int num_threads, float kmer_vote, bool verbose);
+};
 }
+

@@ -17,9 +17,8 @@ using std::vector;
 namespace Core {
 class Abundance {
  public:
-  vector<double> _values;
-  vector<int> _locs;
-  vector<int> _ids;
+  vector<float> _values;
+  vector<uint64_t> _ids;
 
   Abundance() {};
 
@@ -27,20 +26,18 @@ class Abundance {
 
   Abundance(const Abundance& ab) {
     _values = ab._values;
-    _locs = ab._locs;
     _ids = ab._ids;
   }
 
   Abundance& operator=(const Abundance& ab) {
     _values = ab._values;
-    _locs = ab._locs;
     _ids = ab._ids;
     return *this;
   }
 
   friend ostream& operator<<(ostream& os, const Abundance& abundance);
 /*
-  bool shareTopPeaks(const Spectrum& other, double epsilon) {
+  bool shareTopPeaks(const Spectrum& other, float epsilon) {
     int i = 0, j = 0;
     while (i < _top_peak_mz.size() && j < other._top_peak_mz.size()) {
       if (fabs(_top_peak_mz[i] - other._top_peak_mz[j]) < epsilon) {
@@ -61,11 +58,11 @@ inline ostream& operator<<(ostream& os, const Abundance& ab) {
   //os << "gene abundances' location and value :" << endl;
   //for (auto value : ab._values) {
   for (int i = 0; i< ab._ids.size(); i++){
-	os << ab._ids[i] << "\t" ;
+	  os << ab._ids[i] << "\t" ;
   }
   os << endl;
   for (int i = 0; i < ab._values.size(); ++i ) {
-    os <<"(" << ab._locs[i] << ", " << ab._values[i] <<")" ;
+    os << ab._values[i] << "\t" ;
   }
   os << endl;
   return os;

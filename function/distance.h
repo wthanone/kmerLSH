@@ -18,9 +18,9 @@ using std::vector;
 namespace Core {
 class Distance {
  public:
-  static double euclidean(const vector<double> lhs, const vector<int> lloc, const vector<double> rhs, const vector<int> rloc);
-  static double cosine(const vector<double> lhs, const vector<int> lloc, const vector<double> rhs, const vector<int> rloc);
-  //static double spearsman(const GeneAbs& lhs, const GeneAbs& rhs);
+  static float euclidean(const vector<float> lhs, const vector<float> rhs);
+  static float cosine(const vector<float> lhs, const vector<float> rhs);
+  //static float spearsman(const GeneAbs& lhs, const GeneAbs& rhs);
 
 };
 
