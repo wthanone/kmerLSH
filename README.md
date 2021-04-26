@@ -3,7 +3,7 @@
 
 1. Install
 
-`<addr>` Make
+> Make
 
 Required packages : KMC3, OpenMP
 
