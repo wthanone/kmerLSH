@@ -1,4 +1,5 @@
 # kmerLSH
+kmerLSH is k-mers clustering for identification of disease associated sub- metagenomes using locality sensitive hashing. kmerLSH is implemented by C++ and opneMP for parallel working. 
 
 
 1. Install
