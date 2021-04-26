@@ -27,5 +27,11 @@ Required packages : KMC3, OpenMP
 > -F, --clust_file_name=STRING           intermediate clustering result file name <default 'clustering_result.txt'>\
 > -M, --mode=STRING                Optional K : run kmc, B : make bin file, C : clustering, E : extract differential reads\
 >     --verbose                   Print messages during run\
->     --only                   Run only the setting mode\ 
+>     --only                   Run only the setting mode
+>    
+
+Example:)
+./kmerLSH -a sample1.txt -b sample2.txt -o sample1 -p sample2 -I 500 -K 23 -T 12 --verbose
+
+
 
